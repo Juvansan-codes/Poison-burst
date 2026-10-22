@@ -17,6 +17,9 @@ import {
   DistributionRequest,
   DistributionResponse,
   HealthResponse,
+  HistoricalAnalysisParams,
+  HistoricalAnalysisResponse,
+  HistoricalPreviewResponse,
   SimulationRequest,
   SimulationResponse,
 } from './types';
@@ -38,9 +41,10 @@ class ApiClientError extends Error {
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options?.headers || {}),
+  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...((options?.headers as Record<string, string>) || {}),
   };
 
   try {
@@ -164,6 +168,57 @@ export const api = {
    */
   async getHistoricalFormats(): Promise<{ supported_formats: unknown[]; guidelines: Record<string, string> }> {
     return request('/api/historical/formats', { method: 'GET' });
+  },
+
+  /**
+   * Upload and preview a historical CSV dataset.
+   */
+  async previewHistoricalDataset(file: File): Promise<HistoricalPreviewResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<HistoricalPreviewResponse>('/api/historical/preview', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  /**
+   * Run complete historical time-window flow aggregation, baseline calibration, and burst detection.
+   */
+  async analyzeHistoricalDataset(
+    params: HistoricalAnalysisParams
+  ): Promise<HistoricalAnalysisResponse> {
+    const formData = new FormData();
+    formData.append('file', params.file);
+    formData.append('timestamp_column', params.timestamp_column);
+    if (params.label_column) {
+      formData.append('label_column', params.label_column);
+    }
+    if (params.benign_label_value) {
+      formData.append('benign_label_value', params.benign_label_value);
+    }
+    formData.append('window_seconds', String(params.window_seconds));
+    if (params.baseline_mode) {
+      formData.append('baseline_mode', params.baseline_mode);
+    }
+    if (params.baseline_ratio !== undefined) {
+      formData.append('baseline_ratio', String(params.baseline_ratio));
+    }
+    if (params.baseline_window_count !== undefined) {
+      formData.append('baseline_window_count', String(params.baseline_window_count));
+    }
+    if (params.baseline_start_timestamp) {
+      formData.append('baseline_start_timestamp', params.baseline_start_timestamp);
+    }
+    if (params.baseline_end_timestamp) {
+      formData.append('baseline_end_timestamp', params.baseline_end_timestamp);
+    }
+    formData.append('alpha', String(params.alpha));
+
+    return request<HistoricalAnalysisResponse>('/api/historical/analyze', {
+      method: 'POST',
+      body: formData,
+    });
   },
 };
 

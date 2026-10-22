@@ -433,3 +433,67 @@ class SimulationResponse(BaseModel):
     evaluation: Optional[EvaluationMetrics] = None
     summary: Optional[str] = None
     model_limitation_note: Optional[str] = None
+
+
+class HistoricalPreviewResponse(BaseModel):
+    """Response containing metadata and sample records for uploaded historical CSV."""
+    file_name: str = Field(..., description="Uploaded CSV filename.")
+    file_size_bytes: int = Field(..., description="File size in bytes.")
+    total_rows: int = Field(..., description="Total number of data rows in CSV.")
+    columns: List[str] = Field(..., description="Header column names.")
+    sample_rows: List[Dict[str, Any]] = Field(..., description="Sample data records for preview.")
+    suggested_timestamp_column: Optional[str] = Field(
+        default=None,
+        description="Suggested column name matching timestamp patterns.",
+    )
+    suggested_label_column: Optional[str] = Field(
+        default=None,
+        description="Suggested column name matching attack/class label patterns.",
+    )
+    detected_label_values: List[str] = Field(
+        default_factory=list,
+        description="Unique sample label values found in dataset (e.g. BENIGN, DDoS).",
+    )
+    timestamp_diagnostics: Optional[str] = Field(
+        default=None,
+        description="Diagnostic information regarding timestamp parsing.",
+    )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="Parsing warnings or data quality remarks.",
+    )
+
+
+class HistoricalAnalysisResponse(BaseModel):
+    """Response containing historical flow aggregation, baseline calibration, and detections."""
+    file_name: str = Field(..., description="Source CSV filename.")
+    measurement_type: MeasurementType = Field(
+        default=MeasurementType.FLOW_COUNT,
+        description="Measurement unit: strictly flow_count for CSV flow summaries.",
+    )
+    measurement_unit_description: str = Field(
+        default="Network flows per observation window",
+        description="Clear user-facing measurement unit description.",
+    )
+    window_seconds: float = Field(..., description="Duration of each observation window in seconds.")
+    total_rows_processed: int = Field(..., description="Number of valid flow records parsed and processed.")
+    invalid_rows: int = Field(..., description="Number of discarded rows due to unparseable timestamps.")
+    total_windows: int = Field(..., description="Total number of contiguous observation windows.")
+    baseline_window_count: int = Field(..., description="Number of baseline calibration windows used.")
+    lambda_window: float = Field(..., description="Estimated baseline mean count per window (lambda_hat).")
+    baseline_rate_per_second: float = Field(..., description="Baseline flow arrival rate per second (lambda_hat / W).")
+    calibration_method: str = Field(..., description="Description of the calibration period and exclusion rules.")
+    detected_burst_count: int = Field(..., description="Number of windows flagged as Poisson burst alerts.")
+    labeled_burst_count: Optional[int] = Field(
+        default=None,
+        description="Number of windows labeled as attack/burst ground truth.",
+    )
+    observations: List[TrafficObservation] = Field(..., description="Aggregated time-series observations.")
+    detections: List[DetectionResponse] = Field(..., description="Authoritative Poisson detection outcomes.")
+    evaluation: Optional[EvaluationMetrics] = Field(
+        default=None,
+        description="Performance evaluation against ground truth if labels were available.",
+    )
+    summary: str = Field(..., description="Summary of experiment and results.")
+    model_limitation_note: str = Field(..., description="Scientific note on Poisson model assumptions.")
+

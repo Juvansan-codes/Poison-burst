@@ -415,9 +415,17 @@ For each experiment, save the input/configuration, random seed when applicable, 
    - Statistical evaluation service calculating TP, FP, TN, FN, Precision, Recall, F1, FPR, and detection delay.
    - Connected end-to-end to Next.js 16 Simulation Lab at `/simulation` with real FastAPI backend, Recharts visualization, parameter validation, and individual window inspector.
 4. **Develop pages in parallel:** each member works on their assigned page against the agreed interfaces. *(IN PROGRESS)*
-5. **Integrate historical processing (Milestone 3 - UPCOMING):** begin with manageable CSV files, then add PCAP support if feasible.
+5. **Integrate historical processing (Milestone 3 - COMPLETED):**
+   - Implemented `HistoricalDataLoader` in `backend/app/services/data_loader.py` for CSV flow summary ingestion (up to 50 MB).
+   - Added `POST /api/historical/preview` for column inspection, sample preview, and auto-suggestion of timestamp and label columns.
+   - Added `POST /api/historical/analyze` for time-window flow aggregation ($W \in [1, 60]$s), baseline calibration, and upper-tail Poisson detection.
+   - Preserved strict measurement semantics: measurement type is `flow_count` ("Network flows per observation window").
+   - Baseline calibration automatically excludes labeled attack windows to prevent baseline contamination.
+   - Evaluation metrics (Precision, Recall, F1, FPR, Confusion Matrix) calculated when ground truth labels are provided; cleanly omitted for unlabeled datasets without fabrication.
+   - Replay interface at `/historical` fully connected: timeline visualization, play/pause scrubber, window inspector, and aggregated results CSV export.
+   - PCAP raw packet capture processing documented as future work.
 6. **Integrate hardware (Milestone 4 - UPCOMING):** confirm board models, implement UDP messages and the receiver, and test controlled bursts.
-7. **Integrate evaluation and reports:** calculate metrics and export actual results. *(COMPLETED FOR SIMULATION)*
+7. **Integrate evaluation and reports:** calculate metrics and export actual results. *(COMPLETED FOR SIMULATION AND HISTORICAL)*
 8. **Run experiments and prepare submission:** preserve results, correct limitations, and prepare the demonstration and report.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.

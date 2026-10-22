@@ -228,7 +228,7 @@ cd backend
 python -m pytest -v
 ```
 
-All 57 unit and integration tests will execute, validating:
+All 70 unit and integration tests will execute, validating:
 - Baseline estimation sample mean calculations.
 - Rejection of empty sequences, negative arrival counts, and non-finite values (NaN / infinity).
 - SciPy upper-tail probability calculations against reference values.
@@ -240,7 +240,12 @@ All 57 unit and integration tests will execute, validating:
 - Verified return to baseline after a sudden burst.
 - Window scaling: $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$.
 - Evaluation metrics (TP, FP, TN, FN, Precision, Recall, F1, FPR, Detection Delay) under perfect, missed, false-alarm, and zero-division edge cases.
-- API validation and HTTP 422 / 400 responses.
+- Historical CSV upload validation, empty file and size limit checks (< 50 MB).
+- Column mapping inference (timestamp and ground-truth label detection).
+- Historical flow-count time-window aggregation ($W \in [1, 60]$s).
+- Baseline calibration with automated exclusion of labeled attack windows.
+- Ground truth flow mapping and evaluation computation.
+- Historical API endpoints (`/api/historical/preview`, `/api/historical/analyze`).
 
 ### Frontend Typecheck, Lint, and Production Build
 
@@ -261,7 +266,7 @@ npm run build
 
 ## 9. API Endpoints Reference
 
-| Method | Endpoint | Description | Request Body |
+| Method | Endpoint | Description | Request / Form Body |
 |---|---|---|---|
 | `GET` | `/api/health` | Service health status | None |
 | `POST` | `/api/poisson/estimate` | Estimate baseline mean count per window ($\hat{\lambda}$) | `{"observations": [10, 12, ...], "window_seconds": 1.0}` |
@@ -269,7 +274,9 @@ npm run build
 | `POST` | `/api/poisson/detect-batch` | Evaluate sequence of arrival counts | `{"observations": [...], "expected_rate": 10.0, "alpha": 0.01}` |
 | `POST` | `/api/poisson/dispersion` | Compute sample mean, variance, and VMR ($D$) | `{"observations": [10, 12, 9, ...]}` |
 | `POST` | `/api/poisson/distribution` | Generate PMF and upper-tail curve points | `{"expected_rate": 10.0, "max_k": 35}` |
-| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation | `{"scenario": "sudden_burst", "baseline_rate_per_second": 15.0, "duration_seconds": 60, "window_seconds": 1.0, ...}` |
+| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation | `{"scenario": "sudden_burst", "baseline_rate_per_second": 15.0, ...}` |
+| `POST` | `/api/historical/preview` | Preview uploaded CSV headers, sample rows, and suggestions | Multipart Form (`file: UploadFile`) |
+| `POST` | `/api/historical/analyze` | Aggregate historical CSV into flow windows & detect bursts | Multipart Form (`file`, `timestamp_column`, `label_column`, `window_seconds`, `alpha`, etc.) |
 | `GET` | `/api/historical/formats` | List supported historical formats | None |
 
 ---
@@ -278,13 +285,13 @@ npm run build
 
 1. **Upper-Tail Semantics:** Burst detection strictly evaluates $\mathbb{P}(X \ge x)$, calculated as `poisson.sf(x - 1, lambda)`. Point probabilities $\mathbb{P}(X = x)$ must never be used for burst decisions.
 2. **Explicit Rate Semantics:** Expected arrival counts per observation window are $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$. The Poisson detector strictly receives expected counts per window ($\lambda_{window}$).
-3. **Ground Truth Independence:** Ground truth labels indicate physical experimental construction (e.g. $[t_{start}, t_{start} + t_{duration})$ in sudden burst), never detector predictions. For non-stationary drift and overdispersion, ground truth is `False` because model mismatch is not a malicious burst.
+3. **Ground Truth Independence:** Ground truth labels indicate physical experimental construction or recorded labels, never detector predictions. For historical datasets, flow labels represent connection intent; they do not automatically guarantee volumetric traffic surges.
 4. **Measurement Unit Separation:**
    - `packet_count`: Physical packets on the wire (PCAP).
    - `flow_count`: Aggregated connection records (NetFlow, CICIDS2017 summaries).
    - `udp_datagram_count`: Application-layer datagrams received by the hardware listener.
    These units represent fundamentally distinct arrival processes and must never be conflated.
-5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard and simulation lab derive from actual backend responses.
+5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard, simulation lab, and historical replay derive from actual backend responses. When ground truth is unavailable, performance metrics (precision, recall, FPR) are omitted rather than invented.
 
 ---
 
@@ -307,11 +314,21 @@ npm run build
 - [x] Interactive Simulation Lab (`/simulation`) connecting directly to the FastAPI backend.
 - [x] Recharts visualization with Injected Burst interval highlighting (`ReferenceArea`), actual counts, and red alert markers.
 - [x] Observation inspector with exact p-value formatting and mathematical reasoning.
-- [x] 57 Pytest backend tests passing (100%).
-- [x] Frontend TypeScript typecheck (`tsc`), ESLint, and Next.js production build passing with 0 errors.
+
+### Completed: Milestone 3 — Historical Traffic Analysis and Replay
+- [x] Historical CSV flow summary parser (`HistoricalDataLoader`) supporting files up to 50 MB.
+- [x] `POST /api/historical/preview` for column inspection, sample preview, and auto-suggestion of timestamp and label columns.
+- [x] `POST /api/historical/analyze` for time-window flow aggregation ($W \in [1, 60]$s), baseline calibration, and upper-tail Poisson detection.
+- [x] Strict measurement semantics: measurement type is `flow_count` ("Network flows per observation window").
+- [x] Baseline calibration with automated exclusion of labeled attack windows to prevent baseline contamination.
+- [x] Window-level ground truth mapping and performance evaluation (Precision, Recall, F1, FPR, Confusion Matrix).
+- [x] Unlabeled dataset support with clean omission of fabricated evaluation metrics.
+- [x] Interactive Historical Replay page (`/historical`) with Recharts timeline, play/pause scrubber, speed controls, window inspector, and aggregated CSV export.
+- [x] 70 Pytest backend tests passing (100%).
+- [x] Frontend TypeScript typecheck (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build passing with 0 errors.
 
 ### Upcoming: Subsequent Milestones
-- **Milestone 3 (Historical Data Ingestion & Replay):** Chunked CSV file streaming and packet capture (PCAP) analysis with timestamp-based window aggregation.
 - **Milestone 4 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
 - **Milestone 5 (Comprehensive Reporting & Polish):** Automated experiment result export and final presentation preparation.
+
 

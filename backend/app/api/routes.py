@@ -8,9 +8,9 @@ probability burst detection, batch analysis, dispersion checking, and simulation
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.core.poisson import (
     calculate_dispersion,
@@ -33,6 +33,8 @@ from app.core.schemas import (
     DistributionRequest,
     DistributionResponse,
     HealthResponse,
+    HistoricalAnalysisResponse,
+    HistoricalPreviewResponse,
     SimulationRequest,
     SimulationResponse,
 )
@@ -294,6 +296,97 @@ def generate_simulation_experiment(req: SimulationRequest) -> SimulationResponse
         )
 
 
+@router.post(
+    "/historical/preview",
+    response_model=HistoricalPreviewResponse,
+    tags=["Historical Replay"],
+    status_code=status.HTTP_200_OK,
+)
+async def preview_historical_dataset(
+    file: UploadFile = File(..., description="Uploaded CSV dataset file"),
+) -> HistoricalPreviewResponse:
+    """Preview uploaded historical network traffic CSV file.
+
+    Extracts column headers, sample records, and infers likely timestamp
+    and ground-truth label columns.
+    """
+    filename = file.filename or "uploaded.csv"
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .csv files are supported for historical flow analysis. Raw PCAP packet captures are scheduled for a future milestone.",
+        )
+
+    try:
+        content = await file.read()
+        return HistoricalDataLoader.preview_csv(content=content, filename=filename)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to preview CSV: {str(err)}",
+        )
+
+
+@router.post(
+    "/historical/analyze",
+    response_model=HistoricalAnalysisResponse,
+    tags=["Historical Replay"],
+    status_code=status.HTTP_200_OK,
+)
+async def analyze_historical_dataset(
+    file: UploadFile = File(..., description="Uploaded historical CSV file"),
+    timestamp_column: str = Form(..., description="Name of the column containing arrival timestamps"),
+    label_column: Optional[str] = Form(None, description="Optional column containing flow ground truth labels"),
+    benign_label_value: Optional[str] = Form("BENIGN", description="Label value(s) designating normal traffic"),
+    window_seconds: float = Form(5.0, description="Duration of observation windows in seconds"),
+    baseline_mode: str = Form("ratio", description="Baseline selection mode ('ratio', 'window_count', or 'timestamp_range')"),
+    baseline_ratio: Optional[float] = Form(0.3, description="Fraction of windows to use for calibration"),
+    baseline_window_count: Optional[int] = Form(None, description="Exact number of initial baseline windows"),
+    baseline_start_timestamp: Optional[str] = Form(None, description="Start timestamp for baseline window range"),
+    baseline_end_timestamp: Optional[str] = Form(None, description="End timestamp for baseline window range"),
+    alpha: float = Form(0.01, description="Significance threshold for upper-tail detection"),
+) -> HistoricalAnalysisResponse:
+    """Run time-window aggregation, baseline calibration, and Poisson burst detection on historical CSV."""
+    filename = file.filename or "uploaded.csv"
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .csv files are supported. PCAP packet captures are scheduled for a future milestone.",
+        )
+
+    try:
+        content = await file.read()
+        return HistoricalDataLoader.analyze_csv(
+            content=content,
+            filename=filename,
+            timestamp_column=timestamp_column,
+            label_column=label_column,
+            benign_label_value=benign_label_value,
+            window_seconds=window_seconds,
+            baseline_mode=baseline_mode,
+            baseline_ratio=baseline_ratio,
+            baseline_window_count=baseline_window_count,
+            baseline_start_timestamp=baseline_start_timestamp,
+            baseline_end_timestamp=baseline_end_timestamp,
+            alpha=alpha,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Historical analysis failed: {str(err)}",
+        )
+
+
 @router.get(
     "/historical/formats",
     tags=["Historical Replay"],
@@ -306,6 +399,8 @@ def get_historical_formats() -> dict:
         "guidelines": {
             "packet_vs_flow": "CSV files from NetFlow/CICIDS represent flow counts. PCAP files represent packet counts. They must not be interchanged.",
             "unlabeled_semantics": "Unlabeled historical records must not be assumed to be normal traffic.",
-            "phase": "Phase 2 implementation in progress.",
+            "measurement_type": "flow_count",
+            "phase": "Milestone 3 Historical CSV Flow Replay Active.",
         },
     }
+

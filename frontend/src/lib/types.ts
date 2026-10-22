@@ -152,3 +152,52 @@ export interface SimulationResponse {
   summary?: string | null;
   model_limitation_note?: string | null;
 }
+
+export interface HistoricalPreviewResponse {
+  file_name: string;
+  file_size_bytes: number;
+  total_rows: number;
+  columns: string[];
+  sample_rows: Record<string, unknown>[];
+  suggested_timestamp_column?: string | null;
+  suggested_label_column?: string | null;
+  detected_label_values: string[];
+  timestamp_diagnostics?: string | null;
+  warnings: string[];
+}
+
+export interface HistoricalAnalysisParams {
+  file: File;
+  timestamp_column: string;
+  label_column?: string | null;
+  benign_label_value?: string;
+  window_seconds: number;
+  baseline_mode?: 'ratio' | 'window_count' | 'timestamp_range';
+  baseline_ratio?: number;
+  baseline_window_count?: number;
+  baseline_start_timestamp?: string;
+  baseline_end_timestamp?: string;
+  alpha: number;
+}
+
+export interface HistoricalAnalysisResponse {
+  file_name: string;
+  measurement_type: MeasurementType;
+  measurement_unit_description: string;
+  window_seconds: number;
+  total_rows_processed: number;
+  invalid_rows: number;
+  total_windows: number;
+  baseline_window_count: number;
+  lambda_window: number;
+  baseline_rate_per_second: number;
+  calibration_method: string;
+  detected_burst_count: number;
+  labeled_burst_count?: number | null;
+  observations: TrafficObservation[];
+  detections: DetectionResponse[];
+  evaluation?: EvaluationMetrics | null;
+  summary: string;
+  model_limitation_note: string;
+}
+
