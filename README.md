@@ -215,14 +215,31 @@ cd backend
 python -m pytest -v
 ```
 
-All 34 unit and integration tests will execute, validating:
+### Backend Tests (Pytest)
+
+Run from either the root or `backend/` directory:
+
+```powershell
+# From project root:
+python -m pytest -v
+
+# Or from backend directory:
+cd backend
+python -m pytest -v
+```
+
+All 57 unit and integration tests will execute, validating:
 - Baseline estimation sample mean calculations.
 - Rejection of empty sequences, negative arrival counts, and non-finite values (NaN / infinity).
 - SciPy upper-tail probability calculations against reference values.
 - Edge cases ($x=0$, $\lambda=0$).
 - Upper-tail detection rule ($p < \alpha$) and rejection of invalid $\alpha$.
 - Batch detection sequence processing.
-- Simulation determinism and reproducibility with fixed seeds.
+- All four simulation scenarios (`poisson_normal`, `sudden_burst`, `rate_drift`, `overdispersed`).
+- Deterministic simulation and exact reproducibility with fixed random seeds.
+- Verified return to baseline after a sudden burst.
+- Window scaling: $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$.
+- Evaluation metrics (TP, FP, TN, FN, Precision, Recall, F1, FPR, Detection Delay) under perfect, missed, false-alarm, and zero-division edge cases.
 - API validation and HTTP 422 / 400 responses.
 
 ### Frontend Typecheck, Lint, and Production Build
@@ -233,7 +250,7 @@ cd frontend
 # TypeScript type checking
 npx tsc --noEmit
 
-# ESLint validation
+# ESLint validation (0 errors, 0 warnings)
 npm run lint
 
 # Production bundle build
@@ -252,7 +269,7 @@ npm run build
 | `POST` | `/api/poisson/detect-batch` | Evaluate sequence of arrival counts | `{"observations": [...], "expected_rate": 10.0, "alpha": 0.01}` |
 | `POST` | `/api/poisson/dispersion` | Compute sample mean, variance, and VMR ($D$) | `{"observations": [10, 12, 9, ...]}` |
 | `POST` | `/api/poisson/distribution` | Generate PMF and upper-tail curve points | `{"expected_rate": 10.0, "max_k": 35}` |
-| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation | `{"scenario": "sudden_burst", "baseline_rate": 15.0, ...}` |
+| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation | `{"scenario": "sudden_burst", "baseline_rate_per_second": 15.0, "duration_seconds": 60, "window_seconds": 1.0, ...}` |
 | `GET` | `/api/historical/formats` | List supported historical formats | None |
 
 ---
@@ -260,33 +277,41 @@ npm run build
 ## 10. Critical Domain Rules
 
 1. **Upper-Tail Semantics:** Burst detection strictly evaluates $\mathbb{P}(X \ge x)$, calculated as `poisson.sf(x - 1, lambda)`. Point probabilities $\mathbb{P}(X = x)$ must never be used for burst decisions.
-2. **Measurement Unit Separation:**
+2. **Explicit Rate Semantics:** Expected arrival counts per observation window are $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$. The Poisson detector strictly receives expected counts per window ($\lambda_{window}$).
+3. **Ground Truth Independence:** Ground truth labels indicate physical experimental construction (e.g. $[t_{start}, t_{start} + t_{duration})$ in sudden burst), never detector predictions. For non-stationary drift and overdispersion, ground truth is `False` because model mismatch is not a malicious burst.
+4. **Measurement Unit Separation:**
    - `packet_count`: Physical packets on the wire (PCAP).
    - `flow_count`: Aggregated connection records (NetFlow, CICIDS2017 summaries).
    - `udp_datagram_count`: Application-layer datagrams received by the hardware listener.
    These units represent fundamentally distinct arrival processes and must never be conflated.
-3. **Unlabeled Semantics:** Historical records without confirmed attack labels must remain classified as unlabeled; they must not be assumed to be benign.
-4. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard and analysis pages derive from actual backend responses.
+5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard and simulation lab derive from actual backend responses.
 
 ---
 
-## 11. Current Milestone Status & Future Work
+## 11. Project Milestone Status
 
-### Implemented in Milestone 1:
+### Completed: Milestone 1 — Core Architecture & Poisson Engine
 - [x] Full-stack architecture with Next.js App Router and FastAPI.
 - [x] Authoritative Poisson engine (`poisson.py`) with complete edge-case handling.
 - [x] Pydantic data schemas enforcing common traffic contracts.
-- [x] All required FastAPI endpoints with local development CORS.
-- [x] 34 automated unit and integration tests passing in Pytest.
-- [x] Next.js frontend with dark charcoal & orange visual design.
-- [x] Page 1: Dashboard with live calibration runner, timeline, recent events, and empty state.
-- [x] Page 2: Historical Replay layout with file upload dropzone, schema preview, and unit selectors.
-- [x] Page 3: Simulation Lab with scenario controls, random seed reproducibility, and confusion matrix.
-- [x] Page 4: Statistical Analysis with live Poisson calculator, PMF explorer, and dispersion analyzer.
-- [x] Centralized typed API client (`api.ts`).
-- [x] Frontend production build and ESLint passing cleanly with 0 errors.
+- [x] Shared TypeScript API client and error handling.
+- [x] Application shell, responsive navigation, and initial 4 page layouts.
 
-### Planned for Subsequent Phases:
-- **Phase 2 (Historical Data Ingestion):** Chunked CSV file streaming and optional Scapy-based PCAP packet counting.
-- **Phase 3 (Physical Hardware Testbed):** Python UDP socket server listening on local network port to aggregate incoming datagrams from 4 Arduino microcontrollers once hardware boards are confirmed.
-- **Phase 4 (Experiment Reporting):** Automated PDF/CSV export of experimental curves and confusion matrices for the project report.
+### Completed: Milestone 2 — End-to-End Traffic Simulation
+- [x] Authoritative synthetic traffic generator with 4 distinct scenarios (`poisson_normal`, `sudden_burst`, `rate_drift`, `overdispersed`).
+- [x] Deterministic reproducibility using NumPy `default_rng(seed)`.
+- [x] Strict rate semantics ($\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$).
+- [x] Ground-truth tracking independent of detector predictions.
+- [x] Statistically parameterized Negative Binomial generator ($p = 1/k, n = \mu / (k - 1)$) for controlled overdispersion.
+- [x] Zero-division-safe evaluation service computing TP, FP, TN, FN, Precision, Recall, F1, FPR, and detection delay.
+- [x] Interactive Simulation Lab (`/simulation`) connecting directly to the FastAPI backend.
+- [x] Recharts visualization with Injected Burst interval highlighting (`ReferenceArea`), actual counts, and red alert markers.
+- [x] Observation inspector with exact p-value formatting and mathematical reasoning.
+- [x] 57 Pytest backend tests passing (100%).
+- [x] Frontend TypeScript typecheck (`tsc`), ESLint, and Next.js production build passing with 0 errors.
+
+### Upcoming: Subsequent Milestones
+- **Milestone 3 (Historical Data Ingestion & Replay):** Chunked CSV file streaming and packet capture (PCAP) analysis with timestamp-based window aggregation.
+- **Milestone 4 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
+- **Milestone 5 (Comprehensive Reporting & Polish):** Automated experiment result export and final presentation preparation.
+

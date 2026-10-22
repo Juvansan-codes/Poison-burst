@@ -121,12 +121,12 @@ class TestSimulationEndpoint:
     def test_simulation_reproducibility(self):
         payload = {
             "scenario": "sudden_burst",
-            "baseline_rate": 10.0,
+            "baseline_rate_per_second": 10.0,
             "duration_seconds": 30,
             "window_seconds": 1.0,
             "burst_start_second": 10,
             "burst_duration_seconds": 5,
-            "burst_rate": 40.0,
+            "burst_rate_per_second": 40.0,
             "alpha": 0.01,
             "random_seed": 123,
         }
@@ -142,3 +142,84 @@ class TestSimulationEndpoint:
         counts2 = [obs["count"] for obs in data2["observations"]]
         assert counts1 == counts2
         assert data1["detected_burst_count"] > 0
+        assert data1["lambda_window"] == 10.0
+        assert data1["summary"] is not None
+
+    def test_simulation_poisson_normal_via_api(self):
+        payload = {
+            "scenario": "poisson_normal",
+            "baseline_rate_per_second": 15.0,
+            "duration_seconds": 25,
+            "window_seconds": 1.0,
+            "alpha": 0.01,
+            "random_seed": 42,
+        }
+        res = client.post("/api/simulation/generate", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["scenario"] == "poisson_normal"
+        assert data["total_windows"] == 25
+        assert data["injected_burst_count"] == 0
+        assert all(obs["ground_truth"] is False for obs in data["observations"])
+
+    def test_simulation_rate_drift_via_api(self):
+        payload = {
+            "scenario": "rate_drift",
+            "baseline_rate_per_second": 8.0,
+            "duration_seconds": 30,
+            "window_seconds": 1.0,
+            "rate_drift_end_per_second": 32.0,
+            "alpha": 0.01,
+            "random_seed": 7,
+        }
+        res = client.post("/api/simulation/generate", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["scenario"] == "rate_drift"
+        assert data["model_limitation_note"] is not None
+        assert data["injected_burst_count"] == 0
+
+    def test_simulation_overdispersed_via_api(self):
+        payload = {
+            "scenario": "overdispersed",
+            "baseline_rate_per_second": 12.0,
+            "duration_seconds": 30,
+            "window_seconds": 1.0,
+            "dispersion_factor": 3.0,
+            "alpha": 0.01,
+            "random_seed": 88,
+        }
+        res = client.post("/api/simulation/generate", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["scenario"] == "overdispersed"
+        assert data["model_limitation_note"] is not None
+
+    def test_simulation_validation_error_returns_422(self):
+        # Window size exceeds duration
+        payload = {
+            "scenario": "poisson_normal",
+            "baseline_rate_per_second": 10.0,
+            "duration_seconds": 10,
+            "window_seconds": 25.0,
+        }
+        res = client.post("/api/simulation/generate", json=payload)
+        assert res.status_code == 422
+        # FastAPI returns validation errors in detail list
+        detail_msgs = str(res.json()["detail"])
+        assert "cannot exceed total simulation duration" in detail_msgs
+
+    def test_simulation_burst_exceeds_duration_returns_422(self):
+        payload = {
+            "scenario": "sudden_burst",
+            "baseline_rate_per_second": 10.0,
+            "duration_seconds": 20,
+            "window_seconds": 1.0,
+            "burst_start_second": 15,
+            "burst_duration_seconds": 10,  # 15 + 10 = 25 > 20
+        }
+        res = client.post("/api/simulation/generate", json=payload)
+        assert res.status_code == 422
+        detail_msgs = str(res.json()["detail"])
+        assert "exceeds simulation duration" in detail_msgs
+

@@ -402,15 +402,22 @@ For each experiment, save the input/configuration, random seed when applicable, 
 - Real communication traffic may not follow a constant-rate Poisson process.
 - Do not invent results, performance percentages, or empirical findings.
 
-## 12. Development Plan
+## 12. Development Plan & Implementation Status
 
-1. **Agree on contracts:** finalize shared data schema, module names, page inputs/outputs, and detection function signature.
-2. **Build the statistical engine:** implement and test baseline estimation, upper-tail probability, and the alert rule.
-3. **Build software simulation:** generate normal traffic and controlled burst scenarios with known labels.
-4. **Develop pages in parallel:** each member works on their assigned page against the agreed interfaces.
-5. **Integrate historical processing:** begin with manageable CSV files, then add PCAP support if feasible.
-6. **Integrate hardware:** confirm board models, implement UDP messages and the receiver, and test controlled bursts.
-7. **Integrate evaluation and reports:** calculate metrics and export actual results.
+1. **Agree on contracts:** finalized shared data schema, module names, page inputs/outputs, and detection function signature. *(COMPLETED - Milestone 1)*
+2. **Build the statistical engine:** implemented and tested baseline estimation, upper-tail probability, and the alert rule in `backend/app/core/poisson.py`. *(COMPLETED - Milestone 1)*
+3. **Build software simulation (Milestone 2 - COMPLETED):**
+   - Implemented synthetic traffic simulator with 4 reproducible scenarios (`poisson_normal`, `sudden_burst`, `rate_drift`, `overdispersed`).
+   - Rate semantics strictly defined: $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$. The Poisson detector receives expected counts per window.
+   - Deterministic simulations using NumPy `default_rng(seed)`.
+   - Independent ground-truth labeling for sudden burst windows $[t_{start}, t_{start} + t_{duration})$.
+   - Negative Binomial dispersion parameterization: $p = 1/k, n = \mu / (k - 1)$, producing exact $\mathbb{E}[X] = \mu$ and $\text{Var}(X) = k \cdot \mu$.
+   - Statistical evaluation service calculating TP, FP, TN, FN, Precision, Recall, F1, FPR, and detection delay.
+   - Connected end-to-end to Next.js 16 Simulation Lab at `/simulation` with real FastAPI backend, Recharts visualization, parameter validation, and individual window inspector.
+4. **Develop pages in parallel:** each member works on their assigned page against the agreed interfaces. *(IN PROGRESS)*
+5. **Integrate historical processing (Milestone 3 - UPCOMING):** begin with manageable CSV files, then add PCAP support if feasible.
+6. **Integrate hardware (Milestone 4 - UPCOMING):** confirm board models, implement UDP messages and the receiver, and test controlled bursts.
+7. **Integrate evaluation and reports:** calculate metrics and export actual results. *(COMPLETED FOR SIMULATION)*
 8. **Run experiments and prepare submission:** preserve results, correct limitations, and prepare the demonstration and report.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.

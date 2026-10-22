@@ -10,12 +10,14 @@ export type MeasurementType = 'packet_count' | 'flow_count' | 'udp_datagram_coun
 
 export interface TrafficObservation {
   timestamp: string;
+  time_seconds?: number;
   count: number;
   source: TrafficSource;
   measurement_type: MeasurementType;
   ground_truth?: boolean | null;
   experiment_id?: string | null;
   window_seconds?: number;
+  expected_baseline_count?: number;
 }
 
 export interface HealthResponse {
@@ -51,6 +53,9 @@ export interface DetectionResponse {
   alpha: number;
   is_burst: boolean;
   interpretation: string;
+  ground_truth?: boolean | null;
+  timestamp?: string | null;
+  time_seconds?: number | null;
 }
 
 export interface BatchDetectionRequest {
@@ -104,12 +109,16 @@ export type SimulationScenario =
 
 export interface SimulationRequest {
   scenario: SimulationScenario;
-  baseline_rate: number;
+  baseline_rate_per_second?: number;
+  baseline_rate?: number;
   duration_seconds: number;
   window_seconds: number;
   burst_start_second?: number;
   burst_duration_seconds?: number;
+  burst_rate_per_second?: number;
   burst_rate?: number;
+  rate_drift_end_per_second?: number;
+  dispersion_factor?: number;
   alpha: number;
   random_seed?: number;
 }
@@ -129,11 +138,17 @@ export interface EvaluationMetrics {
 export interface SimulationResponse {
   experiment_id: string;
   scenario: string;
+  baseline_rate_per_second: number;
+  lambda_window: number;
   baseline_rate: number;
+  window_seconds: number;
+  duration_seconds: number;
   total_windows: number;
   detected_burst_count: number;
   injected_burst_count: number;
   observations: TrafficObservation[];
   detections: DetectionResponse[];
   evaluation?: EvaluationMetrics | null;
+  summary?: string | null;
+  model_limitation_note?: string | null;
 }

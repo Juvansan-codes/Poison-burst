@@ -282,6 +282,11 @@ def generate_simulation_experiment(req: SimulationRequest) -> SimulationResponse
     """
     try:
         return run_traffic_simulation(req)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

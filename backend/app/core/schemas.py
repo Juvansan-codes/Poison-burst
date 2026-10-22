@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TrafficSource(str, Enum):
@@ -75,6 +75,16 @@ class TrafficObservation(BaseModel):
         default=1.0,
         gt=0.0,
         description="Duration of the observation window in seconds.",
+    )
+    time_seconds: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Elapsed simulation or start time of this window in seconds.",
+    )
+    expected_baseline_count: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Expected baseline arrivals in this window (lambda_window).",
     )
 
 
@@ -166,6 +176,9 @@ class DetectionResponse(BaseModel):
     alpha: float = Field(..., description="Configured significance threshold.")
     is_burst: bool = Field(..., description="True if p_value < alpha, indicating a statistically unusual burst.")
     interpretation: str = Field(..., description="Human-readable explanation of the statistical decision.")
+    ground_truth: Optional[bool] = Field(default=None, description="Actual ground truth status if known.")
+    timestamp: Optional[str] = Field(default=None, description="Window timestamp label.")
+    time_seconds: Optional[float] = Field(default=None, description="Window start time in seconds.")
 
 
 class BatchDetectionRequest(BaseModel):
@@ -259,37 +272,57 @@ class SimulationRequest(BaseModel):
         default=SimulationScenario.SUDDEN_BURST,
         description="Traffic scenario to generate.",
     )
-    baseline_rate: float = Field(
-        default=15.0,
+    baseline_rate_per_second: Optional[float] = Field(
+        default=None,
         gt=0.0,
-        description="Baseline expected arrivals per window (lambda).",
+        description="Baseline arrival rate in arrivals per second.",
+    )
+    baseline_rate: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Alias for baseline_rate_per_second (for backward compatibility).",
     )
     duration_seconds: int = Field(
         default=60,
-        ge=10,
-        le=300,
+        ge=5,
+        le=600,
         description="Total duration of the simulation in seconds.",
     )
     window_seconds: float = Field(
         default=1.0,
         gt=0.0,
-        le=10.0,
+        le=60.0,
         description="Duration of each observation window in seconds.",
     )
-    burst_start_second: Optional[int] = Field(
-        default=25,
-        ge=0,
-        description="Second at which the injected burst begins.",
+    burst_start_second: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Second at which the injected burst begins (for sudden_burst).",
     )
-    burst_duration_seconds: Optional[int] = Field(
-        default=10,
-        ge=1,
-        description="Duration of the injected burst in seconds.",
+    burst_duration_seconds: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Duration of the injected burst in seconds (for sudden_burst).",
+    )
+    burst_rate_per_second: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Elevated arrival rate during burst in arrivals per second.",
     )
     burst_rate: Optional[float] = Field(
-        default=45.0,
+        default=None,
         gt=0.0,
-        description="Elevated arrival rate during the burst.",
+        description="Alias for burst_rate_per_second (for backward compatibility).",
+    )
+    rate_drift_end_per_second: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Ending arrival rate for rate_drift scenario in arrivals per second.",
+    )
+    dispersion_factor: Optional[float] = Field(
+        default=3.0,
+        gt=1.0,
+        description="Variance-to-mean ratio (D = Var/Mean > 1) for overdispersed scenario.",
     )
     alpha: float = Field(
         default=0.01,
@@ -301,6 +334,73 @@ class SimulationRequest(BaseModel):
         default=42,
         description="Seed for deterministic, reproducible simulation.",
     )
+
+    @model_validator(mode="after")
+    def validate_simulation_parameters(self) -> "SimulationRequest":
+        # Reconcile baseline rate per second
+        if self.baseline_rate_per_second is None:
+            if self.baseline_rate is not None:
+                self.baseline_rate_per_second = float(self.baseline_rate)
+            else:
+                self.baseline_rate_per_second = 15.0
+        self.baseline_rate = self.baseline_rate_per_second
+
+        if self.baseline_rate_per_second <= 0.0:
+            raise ValueError("Baseline arrival rate per second must be strictly positive.")
+
+        if self.duration_seconds <= 0:
+            raise ValueError("Simulation duration must be strictly positive.")
+
+        if self.window_seconds <= 0.0:
+            raise ValueError("Window size must be strictly positive.")
+
+        if self.window_seconds > self.duration_seconds:
+            raise ValueError("Observation window size cannot exceed total simulation duration.")
+
+        # Reconcile burst parameters for sudden_burst
+        if self.scenario == SimulationScenario.SUDDEN_BURST:
+            if self.burst_rate_per_second is None:
+                if self.burst_rate is not None:
+                    self.burst_rate_per_second = float(self.burst_rate)
+                else:
+                    self.burst_rate_per_second = float(self.baseline_rate_per_second * 3.0)
+            self.burst_rate = self.burst_rate_per_second
+
+            if self.burst_rate_per_second <= 0.0:
+                raise ValueError("Burst arrival rate per second must be strictly positive.")
+
+            if self.burst_start_second is None:
+                self.burst_start_second = float(min(25.0, self.duration_seconds * 0.4))
+
+            if self.burst_duration_seconds is None:
+                self.burst_duration_seconds = float(min(10.0, self.duration_seconds * 0.2))
+
+            if self.burst_start_second < 0.0:
+                raise ValueError("Burst start time cannot be negative.")
+
+            if self.burst_duration_seconds <= 0.0:
+                raise ValueError("Burst duration must be strictly positive.")
+
+            if (self.burst_start_second + self.burst_duration_seconds) > self.duration_seconds:
+                raise ValueError(
+                    f"Injected burst interval [{self.burst_start_second}s, "
+                    f"{self.burst_start_second + self.burst_duration_seconds}s] "
+                    f"exceeds simulation duration ({self.duration_seconds}s)."
+                )
+
+        # Validate rate drift
+        elif self.scenario == SimulationScenario.RATE_DRIFT:
+            if self.rate_drift_end_per_second is None:
+                self.rate_drift_end_per_second = float(self.baseline_rate_per_second * 3.0)
+            if self.rate_drift_end_per_second <= 0.0:
+                raise ValueError("Drift ending arrival rate must be strictly positive.")
+
+        # Validate overdispersed
+        elif self.scenario == SimulationScenario.OVERDISPERSED:
+            if self.dispersion_factor is None or self.dispersion_factor <= 1.0:
+                raise ValueError("Dispersion factor must be strictly greater than 1.0 for overdispersed traffic.")
+
+        return self
 
 
 class EvaluationMetrics(BaseModel):
@@ -320,10 +420,16 @@ class SimulationResponse(BaseModel):
     """Response containing synthetic simulation results, detections, and evaluation."""
     experiment_id: str
     scenario: str
+    baseline_rate_per_second: float
+    lambda_window: float
     baseline_rate: float
+    window_seconds: float
+    duration_seconds: int
     total_windows: int
     detected_burst_count: int
     injected_burst_count: int
     observations: List[TrafficObservation]
     detections: List[DetectionResponse]
     evaluation: Optional[EvaluationMetrics] = None
+    summary: Optional[str] = None
+    model_limitation_note: Optional[str] = None
