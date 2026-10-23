@@ -35,15 +35,23 @@ from app.core.schemas import (
     DistributionResponse,
     ExperimentDetailResponse,
     ExperimentListResponse,
+    ExperimentStatisticsResponse,
     ExperimentSummary,
     HealthResponse,
     HistoricalAnalysisResponse,
     HistoricalPreviewResponse,
     SimulationRequest,
     SimulationResponse,
+    ThresholdAnalysisRequest,
+    ThresholdAnalysisResponse,
 )
 from app.services.data_loader import HistoricalDataLoader
 from app.services.experiment_repository import get_experiment_repository
+from app.services.pdf_report_generator import generate_experiment_pdf_report
+from app.services.statistical_analysis import (
+    compute_experiment_statistics,
+    compute_threshold_sensitivity,
+)
 from app.services.traffic_simulator import run_traffic_simulation
 
 router = APIRouter()
@@ -529,5 +537,82 @@ def get_dashboard_summary() -> DashboardSummaryResponse:
     """Return real dashboard summary statistics calculated from persistent experiment records."""
     repo = get_experiment_repository()
     return repo.get_dashboard_summary()
+
+
+# =============================================================================
+# Milestone 5: Advanced Statistical Analysis & Experiment Report API
+# =============================================================================
+
+@router.get(
+    "/experiments/{experiment_id}/statistics",
+    response_model=ExperimentStatisticsResponse,
+    tags=["Statistical Analysis"],
+    status_code=status.HTTP_200_OK,
+)
+def get_experiment_statistics(experiment_id: str) -> ExperimentStatisticsResponse:
+    """Return comprehensive empirical statistics, baseline confidence interval, and goodness-of-fit diagnostics."""
+    repo = get_experiment_repository()
+    exp = repo.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found in persistent storage.",
+        )
+    return compute_experiment_statistics(exp)
+
+
+@router.post(
+    "/experiments/{experiment_id}/threshold-analysis",
+    response_model=ThresholdAnalysisResponse,
+    tags=["Statistical Analysis"],
+    status_code=status.HTTP_200_OK,
+)
+def run_threshold_analysis(
+    experiment_id: str,
+    req: ThresholdAnalysisRequest,
+) -> ThresholdAnalysisResponse:
+    """Evaluate detection sensitivity across multiple alpha values without modifying the saved experiment."""
+    repo = get_experiment_repository()
+    exp = repo.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found in persistent storage.",
+        )
+    return compute_threshold_sensitivity(exp, req.alphas)
+
+
+@router.get(
+    "/experiments/{experiment_id}/report.pdf",
+    tags=["Statistical Analysis"],
+    status_code=status.HTTP_200_OK,
+)
+def download_experiment_pdf_report(experiment_id: str) -> Response:
+    """Generate and download a professional, academic PDF report for the saved experiment."""
+    repo = get_experiment_repository()
+    exp = repo.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found for report generation.",
+        )
+
+    try:
+        pdf_bytes = generate_experiment_pdf_report(exp)
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF experiment report: {str(err)}",
+        )
+
+    filename = f"PoissonBurst_Report_{experiment_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/pdf",
+        },
+    )
 
 

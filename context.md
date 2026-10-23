@@ -433,8 +433,16 @@ For each experiment, save the input/configuration, random seed when applicable, 
    - Statistical Analysis integration (`frontend/src/app/analysis/page.tsx`) featuring a saved experiment selector to inspect empirical parameters ($\hat{\lambda}, W, \bar{X}, s^2, D = s^2/\bar{X}$) and evaluation metrics while clearly differentiating interactive hypothetical calculations.
    - Strict measurement semantics preserved across all pages: simulated packet counts and historical flow counts remain segregated and never conflated into an artificial common rate.
    - Survives backend restarts and page reloads; 84 backend unit/integration tests and complete Next.js production build passing.
-7. **Integrate hardware (Milestone 5 - UPCOMING):** confirm board models, implement UDP datagram listener, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
-8. **Run experiments and prepare submission:** run comparative experimental evaluations across configurations, export final empirical tables and figures, and prepare the project viva and technical demonstration.
+7. **Advanced Statistical Analysis & Experiment Report Generation (Milestone 5 - COMPLETED):**
+   - Implemented exact Garwood Poisson confidence intervals for baseline parameter uncertainty using the central chi-square distribution: $\lambda \in \left[\frac{1}{2n}\chi^2_{2T, \alpha/2}, \frac{1}{2n}\chi^2_{2(T+1), 1-\alpha/2}\right]$.
+   - Implemented Pearson Chi-Square Goodness-of-Fit test with dynamic category pooling ($E_i \ge 5.0$) against both calibrated baseline and empirical sample mean, with strict degrees-of-freedom validation ($df > 0$) and accessible non-misleading interpretations.
+   - Built Empirical vs Theoretical Poisson Distribution Fit Explorer with relative frequencies and theoretical PMF points.
+   - Implemented non-mutating Threshold Sensitivity Analysis (`POST /api/experiments/{id}/threshold-analysis`), evaluating detection outcomes across multiple significance levels without altering the saved experiment record.
+   - Implemented publication-grade PDF report generator (`GET /api/experiments/{id}/report.pdf`) using ReportLab and Matplotlib, embedding time-series traffic plots, empirical distribution curves, sensitivity analyses, confusion matrices, and academic discussions.
+   - Added PDF report download actions across Statistical Analysis (`/analysis`), Experiment History (`/experiments`), and Dashboard (`/`).
+   - Extended backend automated test suite to 99 tests (100% passing) and verified all 17 end-to-end workflow steps.
+8. **Physical Hardware Testbed (Milestone 6 - UPCOMING):** Confirm Arduino microcontroller board models, implement UDP datagram listener service on the monitoring laptop, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
+9. **Final Micro-Project Submission & Viva Presentation:** Run comprehensive comparative experiments, export empirical figures and tables, and prepare project demonstration and viva defense.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.
 

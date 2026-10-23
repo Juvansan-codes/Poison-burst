@@ -50,7 +50,7 @@ The system uses a clean full-stack architecture decoupling the frontend presenta
 ```
 
 - **Frontend:** Next.js (App Router), React 19, TypeScript, Tailwind CSS, Recharts for charts, Lucide React for icons.
-- **Backend:** Python 3.11+, FastAPI, Pydantic v2, SciPy (survival function `poisson.sf`), NumPy, Pandas, Uvicorn.
+- **Backend:** Python 3.11+, FastAPI, Pydantic v2, SciPy (survival function `poisson.sf`, `chi2`), NumPy, Pandas, Matplotlib (headless `Agg`), ReportLab (PDF generation), Uvicorn.
 - **Testing:** Pytest & HTTPX for backend tests; TypeScript type checking, ESLint, and Next.js production build.
 
 ---
@@ -80,9 +80,29 @@ $$\text{Flag as Burst if } p < \alpha$$
 In a true Poisson process, $\mathbb{E}[X] = \text{Var}(X) = \lambda$.
 The sample variance-to-mean ratio (VMR):
 $$D = \frac{s^2}{\bar{X}}$$
-- $D \approx 1.0$: Consistent with Poisson.
-- $D > 1.0$: Overdispersed (traffic clustering / burstiness).
-- $D < 1.0$: Underdispersed (uniformly spaced arrivals).
+- $D \approx 1.0$: Consistent with Poisson equidispersed arrival pattern.
+- $D > 1.0$: Overdispersed (traffic clustering, microbursts, or non-constant intensity).
+- $D < 1.0$: Underdispersed (regular, scheduled, or paced traffic).
+
+### 4.5 Exact Garwood Confidence Interval for Baseline Mean ($\lambda$)
+For $n$ baseline observation windows with total arrivals $T = \sum_{i=1}^n X_i$, the exact two-sided $(1 - \alpha)$ confidence interval for $\lambda$ is computed via the Chi-Square distribution:
+$$\lambda_L = \frac{1}{2n} \chi^2_{2T, \, \alpha/2} \quad (\text{if } T = 0, \, \lambda_L = 0)$$
+$$\lambda_U = \frac{1}{2n} \chi^2_{2(T+1), \, 1 - \alpha/2}$$
+*Note:* This quantifies estimation uncertainty in the true mean arrival count per window under stationary Poisson assumptions, distinct from anomaly detection thresholds.
+
+### 4.6 Pearson Chi-Square Goodness-of-Fit with Category Pooling
+Tests whether observed count frequencies conform to a Poisson distribution:
+$$H_0: X \sim \text{Poisson}(\lambda)$$
+$$\chi^2 = \sum_{i=1}^k \frac{(O_i - E_i)^2}{E_i}$$
+**Statistical Rigor Requirements:**
+- **Dynamic Bin Pooling:** Categories are pooled until expected frequencies satisfy $E_i \ge 5.0$, with open upper tails ($k+$).
+- **Degrees of Freedom Validation:** When $\lambda$ is estimated from sample data, $df = k - 1 - 1 = k - 2$. When using the fixed baseline, $df = k - 1$. The test requires $df \ge 1$; if insufficient bins remain after pooling, the test reports as statistically unavailable with an explicit explanation.
+- **Academic Distinction:** Failure to reject $H_0$ ($p \ge 0.05$) indicates no strong distributional divergence, but does not prove arrivals are independent or stationary over time.
+
+### 4.7 Non-Mutating Threshold Sensitivity Analysis
+Evaluates detection trade-offs across significance levels ($\alpha \in [0.0001, 0.20]$):
+- Re-evaluates upper-tail decisions ($p < \alpha$) against stored window counts and frozen baseline $\hat{\lambda}$.
+- Recomputes alert counts, Precision, Recall, F1-score, and False Positive Rate without mutating the original experiment record or calibrated baseline.
 
 ---
 
@@ -116,7 +136,9 @@ MicroProject/
 │       │   ├── experiment_repository.py # Persistent SQLite storage layer (WAL mode)
 │       │   ├── traffic_simulator.py  # Deterministic scenario generator
 │       │   ├── evaluation.py     # Confusion matrix & performance evaluation
-│       │   └── data_loader.py    # Historical CSV data loader & flow aggregator
+│       │   ├── data_loader.py    # Historical CSV data loader & flow aggregator
+│       │   ├── statistical_analysis.py # Milestone 5 advanced statistical analysis & sensitivity
+│       │   └── pdf_report_generator.py # Milestone 5 ReportLab & Matplotlib PDF generator
 │       └── tests/
 │           ├── __init__.py
 │           ├── test_poisson.py   # Unit tests for baseline, upper tail, edge cases
@@ -124,6 +146,8 @@ MicroProject/
 │           ├── test_evaluation.py # Performance metric edge-case tests
 │           ├── test_data_loader.py # CSV parser and aggregation tests
 │           ├── test_experiments.py # Persistent storage, dashboard summary & API tests
+│           ├── test_statistical_analysis.py # Milestone 5 unit & integration tests
+│           ├── verify_milestone5_e2e.py # 17-step end-to-end verification script
 │           └── test_api.py       # API integration tests
 │
 └── frontend/                     # Next.js App Router Web Interface
@@ -224,7 +248,7 @@ cd backend
 python -m pytest -v
 ```
 
-All 84 unit and integration tests will execute, validating:
+All 99 unit and integration tests will execute, validating:
 - Baseline estimation sample mean calculations.
 - Rejection of empty sequences, negative arrival counts, and non-finite values (NaN / infinity).
 - SciPy upper-tail probability calculations against reference values.
@@ -248,6 +272,11 @@ All 84 unit and integration tests will execute, validating:
 - Dashboard summary aggregation across actual stored experiment records.
 - Result CSV export with observation metadata and clean experiment deletion.
 - Dataset previews correctly verified as non-persistent.
+- Exact Garwood Poisson confidence intervals for $\lambda$ via Chi-Square quantile functions.
+- Pearson Chi-Square goodness-of-fit with dynamic category pooling ($E_i \ge 5.0$) and degrees-of-freedom validation ($df > 0$).
+- Equidispersed sample fit confirmation vs overdispersed sample rejection ($p < 0.05$).
+- Non-mutating derived threshold sensitivity analysis across multiple significance levels preserving frozen baselines.
+- Publication-quality PDF experiment report generation via ReportLab and Matplotlib with embedded plots and metadata.
 
 ### Frontend Typecheck, Lint, and Production Build
 
@@ -285,6 +314,9 @@ npm run build
 | `GET` | `/api/experiments/{id}` | Retrieve full experiment details, observations, and metrics | Path param (`id`) |
 | `DELETE` | `/api/experiments/{id}` | Safely delete a stored experiment record | Path param (`id`) |
 | `GET` | `/api/experiments/{id}/export` | Export saved experiment observations and metadata as CSV | Path param (`id`) |
+| `GET` | `/api/experiments/{id}/statistics` | Advanced statistical summary, Garwood CI, Goodness-of-Fit, PMF distribution | Path param (`id`) |
+| `POST` | `/api/experiments/{id}/threshold-analysis` | Non-mutating derived sensitivity analysis across multiple $\alpha$ thresholds | Path param (`id`), JSON `{"thresholds": [0.10, 0.05, 0.01, 0.005, 0.001]}` |
+| `GET` | `/api/experiments/{id}/report.pdf` | Generate and download publication-quality PDF report with embedded figures | Path param (`id`) |
 
 ---
 
@@ -300,6 +332,7 @@ npm run build
    These units represent fundamentally distinct arrival processes and must never be conflated.
 5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard, simulation lab, historical replay, and experiment history derive from actual backend responses. When ground truth is unavailable, performance metrics (precision, recall, FPR) are omitted rather than invented.
 6. **Persistence Integrity:** Preview operations and failed requests are never stored. Only successfully completed simulations and historical analyses create immutable experiment records.
+7. **Derived Sensitivity Isolation:** Recalculating detection outcomes under hypothetical $\alpha$ thresholds must never overwrite the original stored experiment record, calibrated baseline, or recorded evaluation metrics.
 
 ---
 
@@ -347,8 +380,21 @@ npm run build
 - [x] 84 Pytest backend tests passing (100%).
 - [x] Frontend TypeScript typecheck (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build passing with 0 errors.
 
+### Completed: Milestone 5 — Advanced Statistical Analysis & Experiment Report Generation
+- [x] Exact Garwood Poisson Confidence Intervals for parameter $\lambda$ using Chi-Square distribution quantiles.
+- [x] Pearson Chi-Square Goodness-of-Fit test with dynamic expected-frequency pooling ($E_i \ge 5.0$) against both calibrated baseline and empirical mean.
+- [x] Academic goodness-of-fit diagnostics accounting for parameter estimation degrees of freedom ($df > 0$) with rigorous, non-misleading interpretations.
+- [x] Empirical vs Theoretical Poisson Distribution Fit Explorer with Recharts ComposedChart overlaying observed relative frequencies with theoretical PMF.
+- [x] Derived, non-mutating Threshold Sensitivity Analysis (`POST /api/experiments/{id}/threshold-analysis`) evaluating detection trade-offs across significance levels without altering the saved experiment record.
+- [x] Publication-grade PDF experiment report generator (`backend/app/services/pdf_report_generator.py`) built with ReportLab and Matplotlib (`Agg` headless backend).
+- [x] PDF reports feature institutional cover headers, metadata badges, mathematical formulations, empirical metrics, confusion matrices, data-driven interpretations, reproducibility info, and 3 embedded 200 DPI vector-styled visualizations (traffic time-series, PMF comparison, threshold sensitivity curve).
+- [x] Direct one-click PDF report download integrations added across Statistical Analysis (`/analysis`), Experiment History (`/experiments`), and Dashboard (`/`).
+- [x] 99 Pytest backend tests passing (100%).
+- [x] 17-step end-to-end automated verification script (`verify_milestone5_e2e.py`) passing 100%.
+- [x] Frontend type check (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build verified.
+
 ### Upcoming: Subsequent Milestones
-- **Milestone 5 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
-- **Milestone 6 (Comprehensive Reporting & Viva Preparation):** Final empirical report generation, defense presentation materials, and project documentation polish.
+- **Milestone 6 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
+- **Milestone 7 (Comprehensive Reporting & Viva Preparation):** Final empirical viva defense presentation materials and project documentation polish.
 
 

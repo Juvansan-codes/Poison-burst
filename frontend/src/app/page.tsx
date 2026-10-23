@@ -10,6 +10,7 @@ import {
   Database,
   Download,
   ExternalLink,
+  FileText,
   Flame,
   FlaskConical,
   History,
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   const refreshDashboard = () => {
     setLoading(true);
@@ -115,6 +117,18 @@ export default function DashboardPage() {
       alert(err instanceof Error ? err.message : 'Failed to download experiment CSV.');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadPdf = async (experimentId: string, title?: string) => {
+    try {
+      setDownloadingPdf(true);
+      const cleanTitle = title ? title.replace(/[^a-zA-Z0-9_-]/g, '_') : experimentId;
+      await api.downloadExperimentReportPdf(experimentId, `PoissonBurst_Report_${cleanTitle}.pdf`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download experiment PDF report.');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -369,9 +383,27 @@ export default function DashboardPage() {
                 <Download className="h-3.5 w-3.5 text-slate-400" />
                 <span>{downloadingId === summary.latest_experiment.experiment_id ? 'Exporting...' : 'Export CSV'}</span>
               </button>
+              <button
+                onClick={() =>
+                  handleDownloadPdf(
+                    summary.latest_experiment!.experiment_id,
+                    summary.latest_experiment!.title
+                  )
+                }
+                disabled={downloadingPdf}
+                className="flex items-center gap-1.5 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-500 transition-colors"
+                title="Download Academic PDF Report"
+              >
+                {downloadingPdf ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>PDF Report</span>
+              </button>
               <Link
                 href={`/experiments?selected=${summary.latest_experiment.experiment_id}`}
-                className="flex items-center gap-1.5 rounded-md bg-orange-600/20 border border-orange-500/30 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-600/30 transition-colors"
+                className="flex items-center gap-1.5 rounded-md bg-[#191c26] border border-[#2d3244] px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
               >
                 <span>Inspect in History</span>
                 <ArrowRight className="h-3.5 w-3.5" />

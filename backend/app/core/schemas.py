@@ -7,6 +7,7 @@ strictly enforcing the core contracts across historical, simulation, and hardwar
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -571,5 +572,112 @@ class DashboardSummaryResponse(BaseModel):
     latest_experiment: Optional[ExperimentSummary] = None
     latest_detected_count: Optional[int] = None
     recent_experiments: List[ExperimentSummary] = Field(default_factory=list)
+
+
+# =====================================================================
+# Milestone 5: Advanced Statistical Analysis & Diagnostics Schemas
+# =====================================================================
+
+class ConfidenceIntervalSchema(BaseModel):
+    """Exact Poisson confidence interval for lambda (Garwood chi-square method)."""
+    confidence_level: float
+    sample_size: int
+    total_arrivals: int
+    point_estimate: float
+    lower_bound: float
+    upper_bound: float
+    method: str
+    interpretation: str
+    is_valid: bool
+    explanation: Optional[str] = None
+
+
+class GoodnessOfFitSchema(BaseModel):
+    """Pearson Chi-Square Goodness-of-Fit test for Poisson distribution."""
+    test_name: str
+    is_valid: bool
+    chi2_statistic: Optional[float] = None
+    degrees_of_freedom: Optional[int] = None
+    p_value: Optional[float] = None
+    null_hypothesis: str
+    interpretation: str
+    bins_evaluated: int
+    minimum_expected_frequency: float
+    bin_details: List[Dict[str, Any]] = Field(default_factory=list)
+    explanation: Optional[str] = None
+
+
+class DistributionFitPointSchema(BaseModel):
+    """Frequency and theoretical probability comparison point for count k."""
+    k: int
+    observed_count: int
+    empirical_probability: float
+    theoretical_probability: float
+    upper_tail_probability: float
+
+
+class ExperimentStatisticsResponse(BaseModel):
+    """Comprehensive statistical summary and diagnostics for a saved experiment."""
+    experiment_id: str
+    title: str
+    experiment_type: ExperimentType
+    measurement_type: MeasurementType
+    source: TrafficSource
+    observation_count: int
+    window_seconds: float
+    ground_truth_available: bool
+    empirical_mean: float
+    sample_variance: float
+    variance_to_mean_ratio: float
+    dispersion_type: str
+    baseline_lambda: float
+    baseline_rate_per_second: float
+    calibration_window_count: Optional[int] = None
+    original_alpha: float
+    original_detected_count: int
+    confidence_interval: ConfidenceIntervalSchema
+    goodness_of_fit_baseline: GoodnessOfFitSchema
+    goodness_of_fit_empirical: GoodnessOfFitSchema
+    distribution_fit: List[DistributionFitPointSchema]
+    evaluation: Optional[EvaluationMetrics] = None
+    interpretation_summary: str
+
+
+class ThresholdSensitivityPoint(BaseModel):
+    """Detection performance and alert count evaluated at a specific significance level."""
+    alpha: float
+    detected_window_count: int
+    evaluation: Optional[EvaluationMetrics] = None
+
+
+class ThresholdAnalysisRequest(BaseModel):
+    """Request to evaluate stored experiment observations across varying significance levels."""
+    alphas: List[float] = Field(
+        default=[0.10, 0.05, 0.01, 0.005, 0.001],
+        description="List of significance thresholds strictly in (0, 1).",
+    )
+
+    @field_validator("alphas")
+    @classmethod
+    def validate_alphas(cls, v: List[float]) -> List[float]:
+        if not v:
+            raise ValueError("Alphas list cannot be empty.")
+        for a in v:
+            if a <= 0.0 or a >= 1.0 or not math.isfinite(a):
+                raise ValueError(f"Each alpha must lie strictly between 0 and 1, got {a}.")
+        # Return sorted descending (most lenient to most stringent)
+        return sorted(list(set(v)), reverse=True)
+
+
+class ThresholdAnalysisResponse(BaseModel):
+    """Sensitivity analysis results across multiple significance thresholds."""
+    experiment_id: str
+    baseline_lambda: float
+    window_seconds: float
+    ground_truth_available: bool
+    points: List[ThresholdSensitivityPoint]
+    original_alpha: float
+    original_detected_count: int
+    note: str
 
 

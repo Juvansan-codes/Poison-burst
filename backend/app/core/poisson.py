@@ -41,7 +41,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Sequence, Union
 
 import numpy as np
-from scipy.stats import poisson
+from scipy.stats import chi2, poisson
 
 
 @dataclass(frozen=True)
@@ -396,3 +396,349 @@ def calculate_poisson_pmf(
         })
 
     return distribution
+
+
+@dataclass(frozen=True)
+class ConfidenceIntervalResult:
+    """Exact Poisson confidence interval for lambda (Garwood chi-square method)."""
+    confidence_level: float
+    sample_size: int
+    total_arrivals: int
+    point_estimate: float
+    lower_bound: float
+    upper_bound: float
+    method: str
+    interpretation: str
+    is_valid: bool
+    explanation: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class GoodnessOfFitResult:
+    """Pearson Chi-Square Goodness-of-Fit test for Poisson distribution."""
+    test_name: str
+    is_valid: bool
+    chi2_statistic: Optional[float]
+    degrees_of_freedom: Optional[int]
+    p_value: Optional[float]
+    null_hypothesis: str
+    interpretation: str
+    bins_evaluated: int
+    minimum_expected_frequency: float
+    bin_details: List[Dict[str, Any]]
+    explanation: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+def calculate_poisson_confidence_interval(
+    observations: Sequence[Union[int, float]],
+    confidence_level: float = 0.95,
+) -> ConfidenceIntervalResult:
+    """Calculate the exact Garwood Poisson confidence interval for lambda.
+
+    Based on the central chi-square distribution quantile relationship:
+        Lower bound: 0.5 * chi2.ppf(alpha/2, 2*T) / n  (0 if T == 0)
+        Upper bound: 0.5 * chi2.ppf(1 - alpha/2, 2*(T+1)) / n
+    where T = sum(X_i) is the total arrival count across n observation windows.
+
+    Args:
+        observations: Representative calibration counts.
+        confidence_level: Desired coverage, strictly in (0, 1). Default: 0.95.
+
+    Returns:
+        ConfidenceIntervalResult: Structured bounds and academic interpretation.
+    """
+    if observations is None or len(observations) == 0:
+        return ConfidenceIntervalResult(
+            confidence_level=confidence_level,
+            sample_size=0,
+            total_arrivals=0,
+            point_estimate=0.0,
+            lower_bound=0.0,
+            upper_bound=0.0,
+            method="Garwood Exact Poisson (Chi-Square)",
+            interpretation="No baseline observations available for confidence interval estimation.",
+            is_valid=False,
+            explanation="Observation sequence is empty.",
+        )
+
+    if confidence_level <= 0.0 or confidence_level >= 1.0 or not math.isfinite(confidence_level):
+        raise ValueError(f"Confidence level must be strictly between 0 and 1, got {confidence_level}.")
+
+    clean: List[int] = []
+    for idx, x in enumerate(observations):
+        if x is None:
+            raise ValueError(f"Observation at index {idx} is None.")
+        fx = float(x)
+        if not math.isfinite(fx) or fx < 0.0:
+            raise ValueError(f"Observation at index {idx} ({x}) must be non-negative and finite.")
+        clean.append(int(round(fx)))
+
+    n = len(clean)
+    T = sum(clean)
+    point_est = float(T / n)
+    alpha = 1.0 - confidence_level
+
+    if T == 0:
+        lower_bound = 0.0
+        upper_bound = float(0.5 * chi2.ppf(1.0 - alpha / 2.0, 2)) / n
+    else:
+        lower_bound = float(0.5 * chi2.ppf(alpha / 2.0, 2 * T)) / n
+        upper_bound = float(0.5 * chi2.ppf(1.0 - alpha / 2.0, 2 * (T + 1))) / n
+
+    interpretation = (
+        f"With {int(round(confidence_level * 100))}% confidence, the true baseline mean arrival count per observation "
+        f"window lies within [{lower_bound:.4f}, {upper_bound:.4f}] (point estimate: {point_est:.4f}). "
+        f"Computed from {n} representative calibration windows ({T} total observed arrivals) using the exact Garwood "
+        f"chi-square method. Note: This parameter confidence interval measures uncertainty about lambda, distinct "
+        f"from the upper-tail burst detection threshold."
+    )
+
+    return ConfidenceIntervalResult(
+        confidence_level=confidence_level,
+        sample_size=n,
+        total_arrivals=T,
+        point_estimate=round(point_est, 6),
+        lower_bound=round(lower_bound, 6),
+        upper_bound=round(upper_bound, 6),
+        method="Garwood Exact Poisson (Chi-Square)",
+        interpretation=interpretation,
+        is_valid=True,
+    )
+
+
+def calculate_poisson_goodness_of_fit(
+    observations: Sequence[Union[int, float]],
+    lambda_val: float,
+    fit_parameter: bool = False,
+    min_expected_frequency: float = 5.0,
+) -> GoodnessOfFitResult:
+    """Perform a Pearson Chi-Square Goodness-of-Fit test for the Poisson distribution.
+
+    Categories are grouped dynamically to ensure expected cell frequencies E_i >= 5.0,
+    ensuring the validity of the Chi-Square approximation.
+
+    Args:
+        observations: Observed arrival count sequence.
+        lambda_val: Poisson parameter (mean arrival count per window).
+        fit_parameter: True if lambda was fitted from the same sample (subtracts 1 df).
+                       False if testing against a predetermined or frozen baseline.
+        min_expected_frequency: Minimum expected count per bin (default: 5.0).
+
+    Returns:
+        GoodnessOfFitResult: Chi-square statistic, df, p-value, and diagnostic interpretation.
+    """
+    null_hypothesis = (
+        f"H0: The observed arrival counts follow a Poisson distribution with parameter lambda = {lambda_val:.4f}."
+    )
+
+    if observations is None or len(observations) < 20:
+        n_obs = len(observations) if observations else 0
+        return GoodnessOfFitResult(
+            test_name="Pearson Chi-Square Goodness-of-Fit",
+            is_valid=False,
+            chi2_statistic=None,
+            degrees_of_freedom=None,
+            p_value=None,
+            null_hypothesis=null_hypothesis,
+            interpretation="Test unavailable: Sample size is insufficient (n < 20). Chi-Square approximation requires larger sample sizes.",
+            bins_evaluated=0,
+            minimum_expected_frequency=min_expected_frequency,
+            bin_details=[],
+            explanation=f"Sample size n={n_obs} is less than the required minimum of 20 observations for a valid Chi-Square approximation.",
+        )
+
+    if lambda_val <= 0.0 or not math.isfinite(lambda_val):
+        return GoodnessOfFitResult(
+            test_name="Pearson Chi-Square Goodness-of-Fit",
+            is_valid=False,
+            chi2_statistic=None,
+            degrees_of_freedom=None,
+            p_value=None,
+            null_hypothesis=null_hypothesis,
+            interpretation="Test unavailable: Expected baseline rate must be strictly positive for distribution fitting.",
+            bins_evaluated=0,
+            minimum_expected_frequency=min_expected_frequency,
+            bin_details=[],
+            explanation="Baseline lambda must be > 0 to define a non-degenerate Poisson distribution.",
+        )
+
+    clean_obs: List[int] = []
+    for idx, x in enumerate(observations):
+        if x is None:
+            raise ValueError(f"Observation at index {idx} is None.")
+        fx = float(x)
+        if not math.isfinite(fx) or fx < 0.0:
+            raise ValueError(f"Observation at index {idx} is invalid: {x}")
+        clean_obs.append(int(round(fx)))
+
+    n = len(clean_obs)
+    max_obs = max(clean_obs)
+    counts_map: Dict[int, int] = {}
+    for x in clean_obs:
+        counts_map[x] = counts_map.get(x, 0) + 1
+
+    bins: List[Dict[str, Any]] = []
+    current_k_start = 0
+    current_o = 0
+    current_e = 0.0
+
+    eval_max_k = max(max_obs + 5, int(lambda_val + 4.0 * math.sqrt(lambda_val)) + 5)
+
+    for k in range(eval_max_k + 1):
+        pk = float(poisson.pmf(k, lambda_val))
+        ek = n * pk
+        ok = counts_map.get(k, 0)
+        current_o += ok
+        current_e += ek
+
+        if current_e >= min_expected_frequency:
+            bins.append({
+                "bin_label": f"{current_k_start}" if current_k_start == k else f"{current_k_start}-{k}",
+                "k_min": current_k_start,
+                "k_max": k,
+                "observed": current_o,
+                "expected": current_e,
+            })
+            current_k_start = k + 1
+            current_o = 0
+            current_e = 0.0
+
+    tail_prob = float(poisson.sf(current_k_start - 1, lambda_val)) if current_k_start > 0 else 1.0
+    tail_expected = n * tail_prob
+    tail_observed = sum(c for val, c in counts_map.items() if val >= current_k_start)
+
+    if bins:
+        if (current_e + tail_expected < min_expected_frequency) or len(bins) == 0:
+            last_bin = bins[-1]
+            last_bin["bin_label"] = f">={last_bin['k_min']}"
+            last_bin["k_max"] = None
+            last_bin["observed"] += current_o + tail_observed
+            p_from_min = float(poisson.sf(last_bin["k_min"] - 1, lambda_val)) if last_bin["k_min"] > 0 else 1.0
+            last_bin["expected"] = n * p_from_min
+        else:
+            bins.append({
+                "bin_label": f">={current_k_start}",
+                "k_min": current_k_start,
+                "k_max": None,
+                "observed": current_o + tail_observed,
+                "expected": tail_expected + current_e,
+            })
+    else:
+        return GoodnessOfFitResult(
+            test_name="Pearson Chi-Square Goodness-of-Fit",
+            is_valid=False,
+            chi2_statistic=None,
+            degrees_of_freedom=None,
+            p_value=None,
+            null_hypothesis=null_hypothesis,
+            interpretation="Test unavailable: Expected frequencies across categories are too small to pool into valid bins (E >= 5.0).",
+            bins_evaluated=0,
+            minimum_expected_frequency=min_expected_frequency,
+            bin_details=[],
+            explanation="Insufficient expected frequencies to form valid bins.",
+        )
+
+    p_params = 1 if fit_parameter else 0
+    df = len(bins) - 1 - p_params
+
+    if df <= 0 or len(bins) < 2:
+        return GoodnessOfFitResult(
+            test_name="Pearson Chi-Square Goodness-of-Fit",
+            is_valid=False,
+            chi2_statistic=None,
+            degrees_of_freedom=max(0, df),
+            p_value=None,
+            null_hypothesis=null_hypothesis,
+            interpretation=f"Test unavailable: After grouping categories to ensure E >= {min_expected_frequency}, only {len(bins)} bin(s) remained (df = {df} <= 0).",
+            bins_evaluated=len(bins),
+            minimum_expected_frequency=min_expected_frequency,
+            bin_details=bins,
+            explanation="Insufficient degrees of freedom after pooling bins.",
+        )
+
+    chi2_stat = 0.0
+    for b in bins:
+        diff = b["observed"] - b["expected"]
+        component = (diff * diff) / b["expected"] if b["expected"] > 0 else 0.0
+        chi2_stat += component
+        b["chi2_component"] = round(component, 4)
+        b["expected"] = round(b["expected"], 4)
+
+    chi2_stat = float(chi2_stat)
+    p_val = float(chi2.sf(chi2_stat, df))
+
+    if p_val < 0.05:
+        decision = (
+            f"Reject H0 at alpha=0.05 (chi2={chi2_stat:.3f}, df={df}, p={p_val:.4e}). "
+            f"The observed traffic counts deviate significantly from the theoretical Poisson({lambda_val:.2f}) distribution. "
+            f"This indicates overdispersion, traffic clustering, or non-stationary arrival rates."
+        )
+    else:
+        decision = (
+            f"Fail to reject H0 at alpha=0.05 (chi2={chi2_stat:.3f}, df={df}, p={p_val:.4f}). "
+            f"The empirical traffic counts are statistically consistent with a Poisson({lambda_val:.2f}) distribution. "
+            f"Important: Failure to reject does NOT prove the process is truly Poisson, nor does it establish that arrivals are independent over time."
+        )
+
+    return GoodnessOfFitResult(
+        test_name="Pearson Chi-Square Goodness-of-Fit",
+        is_valid=True,
+        chi2_statistic=round(chi2_stat, 4),
+        degrees_of_freedom=df,
+        p_value=round(p_val, 6),
+        null_hypothesis=null_hypothesis,
+        interpretation=decision,
+        bins_evaluated=len(bins),
+        minimum_expected_frequency=min_expected_frequency,
+        bin_details=bins,
+    )
+
+
+def calculate_empirical_vs_theoretical_distribution(
+    observations: Sequence[Union[int, float]],
+    lambda_val: float,
+    max_k: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Calculate empirical relative frequencies alongside theoretical Poisson PMF."""
+    if observations is None or len(observations) == 0:
+        return []
+
+    clean = [int(round(float(x))) for x in observations]
+    n = len(clean)
+    counts_map: Dict[int, int] = {}
+    for x in clean:
+        counts_map[x] = counts_map.get(x, 0) + 1
+
+    obs_max = max(clean) if clean else 0
+    if max_k is None:
+        theoretical_span = int(lambda_val + 4.0 * math.sqrt(max(1.0, lambda_val)))
+        upper_k = min(150, max(obs_max + 2, theoretical_span + 2))
+    else:
+        upper_k = max_k
+
+    points: List[Dict[str, Any]] = []
+    for k in range(upper_k + 1):
+        obs_count = counts_map.get(k, 0)
+        emp_prob = float(obs_count / n)
+        if lambda_val <= 0.0:
+            theo_prob = 1.0 if k == 0 else 0.0
+            tail_prob = 1.0 if k == 0 else 0.0
+        else:
+            theo_prob = float(poisson.pmf(k, lambda_val))
+            tail_prob = float(poisson.sf(k - 1, lambda_val)) if k > 0 else 1.0
+
+        points.append({
+            "k": k,
+            "observed_count": obs_count,
+            "empirical_probability": round(emp_prob, 6),
+            "theoretical_probability": round(theo_prob, 6),
+            "upper_tail_probability": round(tail_prob, 6),
+        })
+
+    return points

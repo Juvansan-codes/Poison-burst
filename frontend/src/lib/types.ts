@@ -248,4 +248,95 @@ export interface DashboardSummaryResponse {
   recent_experiments: ExperimentSummary[];
 }
 
+export interface ConfidenceIntervalSchema {
+  confidence_level: number;
+  sample_size: number;
+  total_arrivals: number;
+  point_estimate: number;
+  lower_bound: number;
+  upper_bound: number;
+  method: string;
+  interpretation: string;
+  is_valid: boolean;
+  explanation?: string | null;
+}
+
+export interface GoodnessOfFitBin {
+  bin_label: string;
+  k_min: number;
+  k_max?: number | null;
+  observed: number;
+  expected: number;
+  chi2_component?: number;
+}
+
+export interface GoodnessOfFitSchema {
+  test_name: string;
+  is_valid: boolean;
+  chi2_statistic?: number | null;
+  degrees_of_freedom?: number | null;
+  p_value?: number | null;
+  null_hypothesis: string;
+  interpretation: string;
+  bins_evaluated: number;
+  minimum_expected_frequency: number;
+  bin_details: GoodnessOfFitBin[];
+  explanation?: string | null;
+}
+
+export interface DistributionFitPointSchema {
+  k: number;
+  observed_count: number;
+  empirical_probability: number;
+  theoretical_probability: number;
+  upper_tail_probability: number;
+}
+
+export interface ExperimentStatisticsResponse {
+  experiment_id: string;
+  title: string;
+  experiment_type: ExperimentType;
+  measurement_type: MeasurementType;
+  source: TrafficSource;
+  observation_count: number;
+  window_seconds: number;
+  ground_truth_available: boolean;
+  empirical_mean: number;
+  sample_variance: number;
+  variance_to_mean_ratio: number;
+  dispersion_type: string;
+  baseline_lambda: number;
+  baseline_rate_per_second: number;
+  calibration_window_count?: number | null;
+  original_alpha: number;
+  original_detected_count: number;
+  confidence_interval: ConfidenceIntervalSchema;
+  goodness_of_fit_baseline: GoodnessOfFitSchema;
+  goodness_of_fit_empirical: GoodnessOfFitSchema;
+  distribution_fit: DistributionFitPointSchema[];
+  evaluation?: EvaluationMetrics | null;
+  interpretation_summary: string;
+}
+
+export interface ThresholdSensitivityPoint {
+  alpha: number;
+  detected_window_count: number;
+  evaluation?: EvaluationMetrics | null;
+}
+
+export interface ThresholdAnalysisRequest {
+  alphas: number[];
+}
+
+export interface ThresholdAnalysisResponse {
+  experiment_id: string;
+  baseline_lambda: number;
+  window_seconds: number;
+  ground_truth_available: boolean;
+  points: ThresholdSensitivityPoint[];
+  original_alpha: number;
+  original_detected_count: number;
+  note: string;
+}
+
 

@@ -13,6 +13,7 @@ import {
   Columns,
   Database,
   Download,
+  FileText,
   Filter,
   RefreshCw,
   Search,
@@ -54,6 +55,7 @@ function ExperimentHistoryContent() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
   // Inspect detail handler
   const handleInspect = async (experimentId: string) => {
@@ -160,6 +162,21 @@ function ExperimentHistoryContent() {
       alert(err instanceof Error ? err.message : 'Failed to download experiment CSV.');
     } finally {
       setExportingId(null);
+    }
+  };
+
+  const handleDownloadPdf = async (experimentId: string, title?: string) => {
+    try {
+      setDownloadingPdfId(experimentId);
+      const cleanTitle = title ? title.replace(/[^a-zA-Z0-9_-]/g, '_') : experimentId;
+      await api.downloadExperimentReportPdf(
+        experimentId,
+        `PoissonBurst_Report_${cleanTitle}.pdf`
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download PDF report.');
+    } finally {
+      setDownloadingPdfId(null);
     }
   };
 
@@ -449,6 +466,18 @@ function ExperimentHistoryContent() {
                             <Download className="h-3.5 w-3.5" />
                           </button>
                           <button
+                            onClick={() => handleDownloadPdf(exp.experiment_id, exp.title)}
+                            disabled={downloadingPdfId === exp.experiment_id}
+                            className="rounded p-1 text-slate-400 hover:text-orange-400 hover:bg-[#252a3b] transition-colors"
+                            title="Download PDF Report"
+                          >
+                            {downloadingPdfId === exp.experiment_id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <FileText className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <button
                             onClick={() => setDeleteTargetId(exp.experiment_id)}
                             className="rounded p-1 text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-colors"
                             title="Delete experiment"
@@ -540,10 +569,24 @@ function ExperimentHistoryContent() {
                   handleExportCsv(selectedExperiment.experiment_id, selectedExperiment.title)
                 }
                 disabled={exportingId === selectedExperiment.experiment_id}
-                className="flex items-center gap-1.5 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-500 transition-colors"
+                className="flex items-center gap-1.5 rounded-md bg-[#191c26] border border-[#2d3244] px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-[#222634] transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() =>
+                  handleDownloadPdf(selectedExperiment.experiment_id, selectedExperiment.title)
+                }
+                disabled={downloadingPdfId === selectedExperiment.experiment_id}
+                className="flex items-center gap-1.5 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-500 transition-colors"
+              >
+                {downloadingPdfId === selectedExperiment.experiment_id ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>PDF Report</span>
               </button>
               <button
                 onClick={() => setSelectedExperiment(null)}

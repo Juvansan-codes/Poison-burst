@@ -19,12 +19,14 @@ import {
   DistributionResponse,
   ExperimentDetailResponse,
   ExperimentListResponse,
+  ExperimentStatisticsResponse,
   HealthResponse,
   HistoricalAnalysisParams,
   HistoricalAnalysisResponse,
   HistoricalPreviewResponse,
   SimulationRequest,
   SimulationResponse,
+  ThresholdAnalysisResponse,
 } from './types';
 
 const API_BASE_URL =
@@ -289,6 +291,70 @@ export const api = {
     const blob = await res.blob();
     const disposition = res.headers.get('Content-Disposition');
     let filename = fallbackFilename || `experiment_${experimentId}.csv`;
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+    }
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  /**
+   * Retrieve advanced statistical summaries, exact Poisson confidence interval,
+   * and Pearson Chi-Square goodness-of-fit diagnostics for a saved experiment.
+   */
+  async getExperimentStatistics(experimentId: string): Promise<ExperimentStatisticsResponse> {
+    return request<ExperimentStatisticsResponse>(
+      `/api/experiments/${encodeURIComponent(experimentId)}/statistics`,
+      { method: 'GET' }
+    );
+  },
+
+  /**
+   * Run threshold sensitivity analysis across multiple significance levels
+   * without mutating the saved experiment record.
+   */
+  async runThresholdAnalysis(
+    experimentId: string,
+    alphas: number[] = [0.10, 0.05, 0.01, 0.005, 0.001]
+  ): Promise<ThresholdAnalysisResponse> {
+    return request<ThresholdAnalysisResponse>(
+      `/api/experiments/${encodeURIComponent(experimentId)}/threshold-analysis`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ alphas }),
+      }
+    );
+  },
+
+  /**
+   * Get direct download URL for the experiment's publication-grade PDF report.
+   */
+  getExperimentReportUrl(experimentId: string): string {
+    return `${API_BASE_URL}/api/experiments/${encodeURIComponent(experimentId)}/report.pdf`;
+  },
+
+  /**
+   * Download a professional PDF experiment report directly in the browser.
+   */
+  async downloadExperimentReportPdf(experimentId: string, fallbackFilename?: string): Promise<void> {
+    const url = `${API_BASE_URL}/api/experiments/${encodeURIComponent(experimentId)}/report.pdf`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new ApiClientError(`Failed to generate PDF experiment report (HTTP ${res.status})`, res.status);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition');
+    let filename = fallbackFilename || `PoissonBurst_Report_${experimentId}.pdf`;
     if (disposition && disposition.includes('filename=')) {
       const match = disposition.match(/filename="?([^"]+)"?/);
       if (match && match[1]) {
