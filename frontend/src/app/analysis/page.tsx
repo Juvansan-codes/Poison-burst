@@ -104,7 +104,7 @@ function StatisticalAnalysisContent() {
     if (!selectedExpId) return;
 
     let isMounted = true;
-    // Handled in event handler or effect
+
     api
       .getExperimentDetail(selectedExpId)
       .then((exp) => {
@@ -113,6 +113,8 @@ function StatisticalAnalysisContent() {
         setSelectedWindowIdx(0);
       })
       .catch((err) => {
+        if (!isMounted) return;
+        setInspectedExperiment(null);
         console.error('Failed to load experiment detail:', err);
       });
 
@@ -123,6 +125,8 @@ function StatisticalAnalysisContent() {
         setInspectedStats(stats);
       })
       .catch((err) => {
+        if (!isMounted) return;
+        setInspectedStats(null);
         console.error('Failed to load experiment statistics:', err);
       })
       .finally(() => {
@@ -136,6 +140,8 @@ function StatisticalAnalysisContent() {
         setThresholdData(tRes);
       })
       .catch((err) => {
+        if (!isMounted) return;
+        setThresholdData(null);
         console.error('Failed to load threshold analysis:', err);
       });
 
@@ -146,10 +152,11 @@ function StatisticalAnalysisContent() {
 
   const handleSelectExperiment = (expId: string) => {
     setSelectedExpId(expId);
+    setInspectedExperiment(null);
+    setInspectedStats(null);
+    setThresholdData(null);
+    setDownloadError(null);
     if (!expId) {
-      setInspectedExperiment(null);
-      setInspectedStats(null);
-      setThresholdData(null);
       setLoadingStats(false);
     } else {
       setLoadingStats(true);

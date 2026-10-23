@@ -90,200 +90,205 @@ class NumberedCanvas(canvas.Canvas):
 def _create_timeseries_figure(exp: ExperimentDetailResponse) -> io.BytesIO:
     """Generate Matplotlib time-series plot of observations, baseline, and detections."""
     fig, ax = plt.subplots(figsize=(7.0, 2.6), dpi=200)
-    fig.patch.set_facecolor("#ffffff")
-    ax.set_facecolor("#f8fafc")
+    try:
+        fig.patch.set_facecolor("#ffffff")
+        ax.set_facecolor("#f8fafc")
 
-    obs = exp.observations
-    n = len(obs)
-    x_vals = [i * exp.window_seconds for i in range(n)]
-    counts = [o.count for o in obs]
+        obs = exp.observations
+        n = len(obs)
+        x_vals = [i * exp.window_seconds for i in range(n)]
+        counts = [o.count for o in obs]
 
-    # Plot traffic count curve
-    unit_label = "Packets" if exp.measurement_type.value == "packet_count" else ("Flows" if exp.measurement_type.value == "flow_count" else "Datagrams")
-    ax.plot(x_vals, counts, color="#0284c7", linewidth=1.2, label=f"Observed {unit_label}/window", zorder=2)
+        # Plot traffic count curve
+        unit_label = "Packets" if exp.measurement_type.value == "packet_count" else ("Flows" if exp.measurement_type.value == "flow_count" else "Datagrams")
+        ax.plot(x_vals, counts, color="#0284c7", linewidth=1.2, label=f"Observed {unit_label}/window", zorder=2)
 
-    # Plot baseline lambda
-    ax.axhline(
-        y=exp.baseline_lambda,
-        color="#16a34a",
-        linestyle="--",
-        linewidth=1.2,
-        label=f"Calibrated Baseline λ = {exp.baseline_lambda:.2f}",
-        zorder=3,
-    )
-
-    # Plot detected burst windows
-    flagged_x = []
-    flagged_y = []
-    for i, d in enumerate(exp.detections):
-        if d.is_burst:
-            flagged_x.append(x_vals[i])
-            flagged_y.append(counts[i])
-
-    if flagged_x:
-        ax.scatter(
-            flagged_x,
-            flagged_y,
-            color="#ef4444",
-            s=28,
-            marker="^",
-            edgecolors="#991b1b",
-            linewidths=0.8,
-            label=f"Poisson Burst Alert (p < {exp.alpha})",
-            zorder=4,
+        # Plot baseline lambda
+        ax.axhline(
+            y=exp.baseline_lambda,
+            color="#16a34a",
+            linestyle="--",
+            linewidth=1.2,
+            label=f"Calibrated Baseline $\\lambda$ = {exp.baseline_lambda:.2f}",
+            zorder=3,
         )
 
-    # Highlight ground-truth burst intervals if available
-    gt_windows = [i for i, o in enumerate(obs) if o.ground_truth is True]
-    if gt_windows:
-        # Group contiguous ground truth intervals
-        intervals = []
-        start_idx = gt_windows[0]
-        prev_idx = gt_windows[0]
-        for idx in gt_windows[1:]:
-            if idx == prev_idx + 1:
-                prev_idx = idx
-            else:
-                intervals.append((start_idx * exp.window_seconds, (prev_idx + 1) * exp.window_seconds))
-                start_idx = idx
-                prev_idx = idx
-        intervals.append((start_idx * exp.window_seconds, (prev_idx + 1) * exp.window_seconds))
+        # Plot detected burst windows
+        flagged_x = []
+        flagged_y = []
+        for i, d in enumerate(exp.detections):
+            if d.is_burst:
+                flagged_x.append(x_vals[i])
+                flagged_y.append(counts[i])
 
-        for j, (t_start, t_end) in enumerate(intervals):
-            ax.axvspan(
-                t_start,
-                t_end,
-                color="#f97316",
-                alpha=0.18,
-                label="Ground Truth Burst Interval" if j == 0 else "",
-                zorder=1,
+        if flagged_x:
+            ax.scatter(
+                flagged_x,
+                flagged_y,
+                color="#ef4444",
+                s=28,
+                marker="^",
+                edgecolors="#991b1b",
+                linewidths=0.8,
+                label=f"Poisson Burst Alert (p < {exp.alpha})",
+                zorder=4,
             )
 
-    ax.set_title("Traffic Arrival Timeline & Statistical Detection Outcomes", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
-    ax.set_xlabel("Elapsed Time (seconds)", fontsize=8, color="#334155")
-    ax.set_ylabel(f"Arrival Count (W = {exp.window_seconds}s)", fontsize=8, color="#334155")
-    ax.tick_params(axis="both", labelsize=7.5, colors="#475569")
-    ax.grid(True, linestyle=":", alpha=0.6, color="#cbd5e1")
-    ax.legend(loc="upper right", fontsize=6.8, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
+        # Highlight ground-truth burst intervals if available
+        gt_windows = [i for i, o in enumerate(obs) if o.ground_truth is True]
+        if gt_windows:
+            # Group contiguous ground truth intervals
+            intervals = []
+            start_idx = gt_windows[0]
+            prev_idx = gt_windows[0]
+            for idx in gt_windows[1:]:
+                if idx == prev_idx + 1:
+                    prev_idx = idx
+                else:
+                    intervals.append((start_idx * exp.window_seconds, (prev_idx + 1) * exp.window_seconds))
+                    start_idx = idx
+                    prev_idx = idx
+            intervals.append((start_idx * exp.window_seconds, (prev_idx + 1) * exp.window_seconds))
 
-    plt.tight_layout()
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=200)
-    plt.close(fig)
-    buf.seek(0)
-    return buf
+            for j, (t_start, t_end) in enumerate(intervals):
+                ax.axvspan(
+                    t_start,
+                    t_end,
+                    color="#f97316",
+                    alpha=0.18,
+                    label="Ground Truth Burst Interval" if j == 0 else "",
+                    zorder=1,
+                )
+
+        ax.set_title("Traffic Arrival Timeline & Statistical Detection Outcomes", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
+        ax.set_xlabel("Elapsed Time (seconds)", fontsize=8, color="#334155")
+        ax.set_ylabel(f"Arrival Count (W = {exp.window_seconds}s)", fontsize=8, color="#334155")
+        ax.tick_params(axis="both", labelsize=7.5, colors="#475569")
+        ax.grid(True, linestyle=":", alpha=0.6, color="#cbd5e1")
+        ax.legend(loc="upper right", fontsize=6.8, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=200)
+        buf.seek(0)
+        return buf
+    finally:
+        plt.close(fig)
 
 
 def _create_distribution_figure(stats: ExperimentStatisticsResponse) -> io.BytesIO:
     """Generate comparison plot of empirical counts vs theoretical Poisson PMF."""
     fig, ax = plt.subplots(figsize=(7.0, 2.5), dpi=200)
-    fig.patch.set_facecolor("#ffffff")
-    ax.set_facecolor("#f8fafc")
+    try:
+        fig.patch.set_facecolor("#ffffff")
+        ax.set_facecolor("#f8fafc")
 
-    dist = stats.distribution_fit
-    if not dist:
-        ax.text(0.5, 0.5, "Insufficient observations for distribution plot", ha="center", va="center")
+        dist = stats.distribution_fit
+        if not dist:
+            ax.text(0.5, 0.5, "Insufficient observations for distribution plot", ha="center", va="center")
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png", dpi=200)
+            buf.seek(0)
+            return buf
+
+        k_vals = [p.k for p in dist]
+        emp_probs = [p.empirical_probability for p in dist]
+        theo_probs = [p.theoretical_probability for p in dist]
+
+        # Bar chart for empirical distribution
+        ax.bar(
+            k_vals,
+            emp_probs,
+            width=0.65,
+            color="#38bdf8",
+            alpha=0.65,
+            edgecolor="#0284c7",
+            linewidth=0.8,
+            label="Empirical Frequency (Sample)",
+            zorder=2,
+        )
+
+        # Line for theoretical Poisson PMF
+        ax.plot(
+            k_vals,
+            theo_probs,
+            color="#f97316",
+            marker="o",
+            markersize=3.5,
+            linewidth=1.4,
+            label=f"Theoretical Poisson($\\lambda$ = {stats.baseline_lambda:.2f})",
+            zorder=3,
+        )
+
+        ax.set_title("Empirical Traffic Count Distribution vs Theoretical Poisson PMF", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
+        ax.set_xlabel("Arrival Count per Window (k)", fontsize=8, color="#334155")
+        ax.set_ylabel("Probability P(X = k)", fontsize=8, color="#334155")
+        ax.tick_params(axis="both", labelsize=7.5, colors="#475569")
+        ax.grid(True, linestyle=":", alpha=0.6, color="#cbd5e1")
+        ax.legend(loc="upper right", fontsize=7.2, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
+
+        plt.tight_layout()
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=200)
-        plt.close(fig)
         buf.seek(0)
         return buf
-
-    k_vals = [p.k for p in dist]
-    emp_probs = [p.empirical_probability for p in dist]
-    theo_probs = [p.theoretical_probability for p in dist]
-
-    # Bar chart for empirical distribution
-    ax.bar(
-        k_vals,
-        emp_probs,
-        width=0.65,
-        color="#38bdf8",
-        alpha=0.65,
-        edgecolor="#0284c7",
-        linewidth=0.8,
-        label="Empirical Frequency (Sample)",
-        zorder=2,
-    )
-
-    # Line for theoretical Poisson PMF
-    ax.plot(
-        k_vals,
-        theo_probs,
-        color="#f97316",
-        marker="o",
-        markersize=3.5,
-        linewidth=1.4,
-        label=f"Theoretical Poisson(λ = {stats.baseline_lambda:.2f})",
-        zorder=3,
-    )
-
-    ax.set_title("Empirical Traffic Count Distribution vs Theoretical Poisson PMF", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
-    ax.set_xlabel("Arrival Count per Window (k)", fontsize=8, color="#334155")
-    ax.set_ylabel("Probability P(X = k)", fontsize=8, color="#334155")
-    ax.tick_params(axis="both", labelsize=7.5, colors="#475569")
-    ax.grid(True, linestyle=":", alpha=0.6, color="#cbd5e1")
-    ax.legend(loc="upper right", fontsize=7.2, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
-
-    plt.tight_layout()
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=200)
-    plt.close(fig)
-    buf.seek(0)
-    return buf
+    finally:
+        plt.close(fig)
 
 
 def _create_sensitivity_figure(sensitivity: ThresholdAnalysisResponse) -> io.BytesIO:
     """Generate threshold sensitivity curves comparing alert counts and detection metrics."""
     fig, ax1 = plt.subplots(figsize=(7.0, 2.4), dpi=200)
-    fig.patch.set_facecolor("#ffffff")
-    ax1.set_facecolor("#f8fafc")
+    try:
+        fig.patch.set_facecolor("#ffffff")
+        ax1.set_facecolor("#f8fafc")
 
-    points = sensitivity.points
-    alphas = [p.alpha for p in points]
-    counts = [p.detected_window_count for p in points]
-    alpha_labels = [f"{a}" for a in alphas]
-    x_indices = list(range(len(alphas)))
+        points = sensitivity.points
+        alphas = [p.alpha for p in points]
+        counts = [p.detected_window_count for p in points]
+        alpha_labels = [f"{a}" for a in alphas]
+        x_indices = list(range(len(alphas)))
 
-    color_alerts = "#ef4444"
-    ax1.plot(x_indices, counts, color=color_alerts, marker="s", markersize=4, linewidth=1.4, label="Flagged Windows")
-    ax1.set_xticks(x_indices)
-    ax1.set_xticklabels(alpha_labels, fontsize=7.5, color="#334155")
-    ax1.set_xlabel("Significance Level Threshold (α)", fontsize=8, color="#334155")
-    ax1.set_ylabel("Flagged Windows (Alerts)", fontsize=8, color=color_alerts)
-    ax1.tick_params(axis="y", labelcolor=color_alerts, labelsize=7.5)
-    ax1.grid(True, linestyle=":", alpha=0.5, color="#cbd5e1")
+        color_alerts = "#ef4444"
+        ax1.plot(x_indices, counts, color=color_alerts, marker="s", markersize=4, linewidth=1.4, label="Flagged Windows")
+        ax1.set_xticks(x_indices)
+        ax1.set_xticklabels(alpha_labels, fontsize=7.5, color="#334155")
+        ax1.set_xlabel("Significance Level Threshold ($\\alpha$)", fontsize=8, color="#334155")
+        ax1.set_ylabel("Flagged Windows (Alerts)", fontsize=8, color=color_alerts)
+        ax1.tick_params(axis="y", labelcolor=color_alerts, labelsize=7.5)
+        ax1.grid(True, linestyle=":", alpha=0.5, color="#cbd5e1")
 
-    has_metrics = sensitivity.ground_truth_available and any(p.evaluation is not None for p in points)
-    if has_metrics:
-        ax2 = ax1.twinx()
-        precisions = [p.evaluation.precision if p.evaluation else 0.0 for p in points]
-        recalls = [p.evaluation.recall if p.evaluation else 0.0 for p in points]
-        f1_scores = [p.evaluation.f1_score if p.evaluation else 0.0 for p in points]
+        has_metrics = sensitivity.ground_truth_available and any(p.evaluation is not None for p in points)
+        if has_metrics:
+            ax2 = ax1.twinx()
+            precisions = [p.evaluation.precision if p.evaluation else 0.0 for p in points]
+            recalls = [p.evaluation.recall if p.evaluation else 0.0 for p in points]
+            f1_scores = [p.evaluation.f1_score if p.evaluation else 0.0 for p in points]
 
-        ax2.plot(x_indices, precisions, color="#0284c7", marker="o", markersize=3.5, linestyle="--", linewidth=1.1, label="Precision")
-        ax2.plot(x_indices, recalls, color="#16a34a", marker="^", markersize=3.5, linestyle="-.", linewidth=1.1, label="Recall")
-        ax2.plot(x_indices, f1_scores, color="#8b5cf6", marker="d", markersize=3.5, linestyle=":", linewidth=1.1, label="F1-Score")
+            ax2.plot(x_indices, precisions, color="#0284c7", marker="o", markersize=3.5, linestyle="--", linewidth=1.1, label="Precision")
+            ax2.plot(x_indices, recalls, color="#16a34a", marker="^", markersize=3.5, linestyle="-.", linewidth=1.1, label="Recall")
+            ax2.plot(x_indices, f1_scores, color="#8b5cf6", marker="d", markersize=3.5, linestyle=":", linewidth=1.1, label="F1-Score")
 
-        ax2.set_ylabel("Metric Score (0.0 to 1.0)", fontsize=8, color="#334155")
-        ax2.set_ylim(-0.05, 1.05)
-        ax2.tick_params(axis="y", labelsize=7.5, colors="#475569")
+            ax2.set_ylabel("Metric Score (0.0 to 1.0)", fontsize=8, color="#334155")
+            ax2.set_ylim(-0.05, 1.05)
+            ax2.tick_params(axis="y", labelsize=7.5, colors="#475569")
 
-        # Combine legends
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=6.5, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
-    else:
-        ax1.legend(loc="upper right", fontsize=7.0, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
+            # Combine legends
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=6.5, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
+        else:
+            ax1.legend(loc="upper right", fontsize=7.0, framealpha=0.9, facecolor="#ffffff", edgecolor="#cbd5e1")
 
-    ax1.set_title("Detection Sensitivity & Performance Across Significance Levels (α)", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
+        ax1.set_title("Detection Sensitivity & Performance Across Significance Levels ($\\alpha$)", fontsize=9.5, fontweight="bold", pad=7, color="#0f172a")
 
-    plt.tight_layout()
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=200)
-    plt.close(fig)
-    buf.seek(0)
-    return buf
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=200)
+        buf.seek(0)
+        return buf
+    finally:
+        plt.close(fig)
 
 
 def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:

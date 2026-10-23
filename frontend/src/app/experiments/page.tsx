@@ -76,12 +76,13 @@ function ExperimentHistoryContent() {
   ) => {
     if (showSpinner) setLoading(true);
     setError(null);
-    api.listExperiments({
-      page: targetPage,
-      page_size: pageSize,
-      type: typeFilter,
-      search: search,
-    })
+    return api
+      .listExperiments({
+        page: targetPage,
+        page_size: pageSize,
+        type: typeFilter === 'all' ? undefined : typeFilter,
+        search: search,
+      })
       .then((res) => {
         setExperiments(res.items);
         setTotal(res.total);

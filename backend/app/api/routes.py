@@ -518,11 +518,12 @@ def export_experiment_csv(experiment_id: str) -> Response:
             detail=f"Experiment '{experiment_id}' was not found for export.",
         )
     csv_content, filename = export_data
+    safe_filename = filename.replace("\r", "").replace("\n", "").replace('"', "")
     return Response(
         content=csv_content,
         media_type="text/csv",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{safe_filename}"',
         },
     )
 
@@ -605,7 +606,8 @@ def download_experiment_pdf_report(experiment_id: str) -> Response:
             detail=f"Failed to generate PDF experiment report: {str(err)}",
         )
 
-    filename = f"PoissonBurst_Report_{experiment_id}.pdf"
+    safe_id = experiment_id.replace("\r", "").replace("\n", "").replace('"', "")
+    filename = f"PoissonBurst_Report_{safe_id}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -441,8 +441,18 @@ For each experiment, save the input/configuration, random seed when applicable, 
    - Implemented publication-grade PDF report generator (`GET /api/experiments/{id}/report.pdf`) using ReportLab and Matplotlib, embedding time-series traffic plots, empirical distribution curves, sensitivity analyses, confusion matrices, and academic discussions.
    - Added PDF report download actions across Statistical Analysis (`/analysis`), Experiment History (`/experiments`), and Dashboard (`/`).
    - Extended backend automated test suite to 99 tests (100% passing) and verified all 17 end-to-end workflow steps.
-8. **Physical Hardware Testbed (Milestone 6 - UPCOMING):** Confirm Arduino microcontroller board models, implement UDP datagram listener service on the monitoring laptop, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
-9. **Final Micro-Project Submission & Viva Presentation:** Run comprehensive comparative experiments, export empirical figures and tables, and prepare project demonstration and viva defense.
+8. **Software Stabilization, Correctness & Reliability (Phase 6A - COMPLETED):**
+   - Conducted comprehensive software audit of mathematical edge cases, persistence integrity, API security, and resource lifecycle.
+   - Fixed missing `Optional` typing import in `backend/app/core/poisson.py` preventing `NameError` during runtime type hint introspection.
+   - Hardened `backend/app/services/pdf_report_generator.py` with `try...finally: plt.close(fig)` across all figure generators to eliminate memory leaks and replaced raw Unicode Greek symbols with MathText `$\lambda$` and `$\alpha$` to avoid headless font glyph warnings.
+   - Fortified `backend/app/api/routes.py` with CRLF/quote sanitization in HTTP `Content-Disposition` attachment headers against header injection attacks.
+   - Corrected frontend state management in `/analysis` to reset stale experiment statistics on fetch failure, and awaited experiment table reloading upon deletion in `/experiments`.
+   - Verified exact mathematical properties: strict upper-tail inequality ($p < \alpha$), Garwood CI monotonicity across confidence levels, dynamic chi-square bin pooling ($df > 0$), and non-mutating threshold sensitivity.
+   - Added `backend/app/tests/test_stability_and_correctness.py` with 14 unit and integration regression tests.
+   - Expanded backend test suite to 113 passing tests (100% pass across all 9 modules) with 0 failures, 17/17 passing E2E verification steps, and clean Next.js production build (`tsc`, `lint`, `build`).
+9. **UI/UX Polish & Visual Design (Phase 6B - PENDING):** Refine interface typography, card aesthetics, Recharts styling, responsive spacing, and micro-interactions once software stabilization is established. (Deferred to Phase 6B).
+10. **Physical Hardware Testbed (Milestone 7 - FUTURE WORK):** Confirm Arduino microcontroller board models, implement UDP datagram listener service on the monitoring laptop, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
+11. **Final Micro-Project Submission & Viva Presentation:** Run comprehensive comparative experiments, export empirical figures and tables, and prepare project demonstration and viva defense.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.
 

@@ -248,7 +248,7 @@ cd backend
 python -m pytest -v
 ```
 
-All 99 unit and integration tests will execute, validating:
+All 113 unit and integration tests will execute, validating:
 - Baseline estimation sample mean calculations.
 - Rejection of empty sequences, negative arrival counts, and non-finite values (NaN / infinity).
 - SciPy upper-tail probability calculations against reference values.
@@ -277,6 +277,13 @@ All 99 unit and integration tests will execute, validating:
 - Equidispersed sample fit confirmation vs overdispersed sample rejection ($p < 0.05$).
 - Non-mutating derived threshold sensitivity analysis across multiple significance levels preserving frozen baselines.
 - Publication-quality PDF experiment report generation via ReportLab and Matplotlib with embedded plots and metadata.
+- Type hint introspection validation without runtime NameError (`test_stability_and_correctness.py`).
+- Matplotlib figure leak prevention with zero residual open figures after report generation.
+- CRLF and quote sanitization in Content-Disposition headers for CSV exports and PDF reports.
+- Zero-rate and zero-observed mathematical edge-case handling ($P(X \ge 0 \mid \lambda=0) = 1$, $P(X \ge 1 \mid \lambda=0) = 0$).
+- Strict decision inequality verification ($p < \alpha$).
+- Garwood confidence interval monotonicity across confidence levels (90% < 95% < 99%).
+- Historical CSV corrupted row counting and discard accounting without crashing ingestion.
 
 ### Frontend Typecheck, Lint, and Production Build
 
@@ -393,8 +400,25 @@ npm run build
 - [x] 17-step end-to-end automated verification script (`verify_milestone5_e2e.py`) passing 100%.
 - [x] Frontend type check (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build verified.
 
-### Upcoming: Subsequent Milestones
-- **Milestone 6 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
-- **Milestone 7 (Comprehensive Reporting & Viva Preparation):** Final empirical viva defense presentation materials and project documentation polish.
+### Completed: Phase 6A — Software Stabilization, Correctness & Reliability
+- [x] Full codebase audit covering mathematical edge cases, persistence integrity, API security, and resource lifecycle.
+- [x] Fixed runtime `NameError` in `backend/app/core/poisson.py` by adding missing `Optional` typing import for clean type introspection.
+- [x] Protected Matplotlib figures in `backend/app/services/pdf_report_generator.py` with `try...finally: plt.close(fig)` across all plots to eliminate memory leaks during repeated PDF exports.
+- [x] Replaced raw Unicode symbols with MathText `$\lambda$` and `$\alpha$` in PDF generation plots to eliminate headless font glyph warnings.
+- [x] Fortified `backend/app/api/routes.py` with CRLF and quote stripping in HTTP `Content-Disposition` headers to guard against header injection.
+- [x] Fixed frontend stale experiment state in `/analysis` on fetch failure, and awaited experiment table reloading upon deletion in `/experiments`.
+- [x] Validated mathematical precision: strict inequality decision ($p < \alpha$), Garwood CI monotonicity across confidence levels, dynamic chi-square bin pooling ($df > 0$), and non-mutating threshold sensitivity.
+- [x] Added `backend/app/tests/test_stability_and_correctness.py` with 14 unit and integration regression tests.
+- [x] 113 Pytest backend tests passing (100% pass across all 9 modules).
+- [x] 17-step end-to-end automated verification script (`verify_milestone5_e2e.py`) passing 100%.
+- [x] Frontend type check (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build verified.
+
+### Pending: Phase 6B — UI/UX Polish & Visual Design
+- Visual styling polish, modern typography, spacing, card aesthetics, and dynamic micro-animations (deferred to Phase 6B).
+
+### Upcoming: Milestone 7 — Arduino Hardware Testbed
+- UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
+- Live arrival counting and burst detection over a private LAN.
+- Micro-project final submission and viva presentation materials.
 
 
