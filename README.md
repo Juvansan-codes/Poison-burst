@@ -170,9 +170,14 @@ MicroProject/
         │   └── experiments/
         │       └── page.tsx      # Experiment History & Comparison Matrix
         ├── components/
-        │   └── layout/
-        │       ├── Navbar.tsx    # Responsive header with live backend status & nav links
-        │       └── Footer.tsx    # Academic footer with team details
+        │   ├── layout/
+        │   │   ├── Navbar.tsx    # Responsive header with live backend status & nav links
+        │   │   └── Footer.tsx    # Academic footer with team details
+        │   └── ui/
+        │       ├── EmptyState.tsx  # Empty state component with action button
+        │       ├── MetricCard.tsx  # Monospace metric display with trend/status indicators
+        │       ├── PageHeader.tsx  # Responsive page title header with actions slot
+        │       └── StatusBadge.tsx # Semantic badge for statuses, ground truth, and scenarios
         └── lib/
             ├── api.ts            # Centralized typed HTTP API client
             ├── types.ts          # Shared TypeScript type definitions
@@ -417,8 +422,16 @@ npm run build
 - [x] 17-step end-to-end automated verification script (`verify_milestone5_e2e.py`) passing 100%.
 - [x] Frontend type check (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build verified.
 
-### Pending: Phase 6B — UI/UX Polish & Visual Design
-- Visual styling polish, modern typography, spacing, card aesthetics, and dynamic micro-animations (deferred to Phase 6B).
+### Completed: Phase 6B — Frontend UI/UX Refactor & Design System
+- [x] Complete transformation to a minimalist, high-contrast developer tool / network monitor aesthetic.
+- [x] Strict unified palette: Black (`#090909`), Graphite backgrounds (`#101010`, `#141414`, `#191919`), Neutral Borders (`#292929`, `#383838`), Contrast Text (`#F5F5F5`, `#A3A3A3`, `#737373`), and restrained Primary Orange (`#FF6A00`) accent.
+- [x] Established 3-font typography system via `next/font/google`: Space Grotesk (headings), Inter (body/UI controls), and JetBrains Mono (technical metrics, counts, p-values, $\lambda$, $\alpha$, timestamps).
+- [x] Built shared component architecture in `frontend/src/components/ui/`: `PageHeader`, `MetricCard`, `StatusBadge`, and `EmptyState`.
+- [x] Refactored responsive `Navbar` (with live API status and mobile drawer) and `Footer` (with team ownership and course credentials).
+- [x] Overhauled all 5 routes (`/`, `/simulation`, `/historical`, `/analysis`, `/experiments`) with balanced 1600px container width.
+- [x] Verified zero horizontal page-level overflow across Desktop (1440px), Tablet (768px), and Mobile (375px) viewports via automated browser testing.
+- [x] Preserved 100% of underlying Poisson mathematics, database persistence, API integration, and experiment data integrity.
+- [x] TypeScript type checking (`tsc --noEmit`), ESLint (0 errors, 0 warnings), Next.js production build (`npm run build`), and Pytest test suite (113/113 passed) fully verified.
 
 ### Upcoming: Milestone 7 — Arduino Hardware Testbed
 - UDP listener service collecting live datagrams from 4 microcontrollers on a local network.

@@ -40,6 +40,9 @@ import {
   TrafficObservation,
 } from '@/lib/types';
 import { formatProbability } from '@/lib/utils';
+import PageHeader from '@/components/ui/PageHeader';
+import StatusBadge from '@/components/ui/StatusBadge';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function SimulationLabPage() {
   // Scenario Selection State
@@ -197,77 +200,66 @@ export default function SimulationLabPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Page Header */}
-      <div className="border-b border-[#262a38] pb-6">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-400">
-          <span>Primary Page Owner: Naveen Kumar R V (URK25CS1016)</span>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl mt-1">
-          Synthetic Simulation Laboratory
-        </h1>
-        <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-          Generate deterministic, reproducible Poisson and non-Poisson traffic time series,
-          inject controlled arrival bursts, evaluate detector sensitivity and false alarms, and investigate model limitations.
-        </p>
-      </div>
+      <PageHeader
+        title="Synthetic Traffic Simulation Lab"
+        subtitle="Generate deterministic, reproducible Poisson and non-Poisson traffic time series, inject controlled arrival bursts, evaluate detector sensitivity and false alarms, and investigate model limitations."
+        badge="25CS203 Micro-Project"
+      />
 
       {/* Error Banners */}
       {validationError && (
-        <div className="mt-6 rounded-lg border border-amber-500/40 bg-amber-950/30 p-4 text-xs text-amber-200">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-amber-300">Invalid Configuration Parameter</p>
-              <p className="mt-1">{validationError}</p>
-            </div>
+        <div className="rounded-lg border border-[rgba(255,106,0,0.3)] bg-[rgba(255,106,0,0.08)] p-4 text-xs text-[#FF6A00] flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-[#FF6A00] mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-[#F5F5F5]">Invalid Configuration Parameter</p>
+            <p className="mt-1 text-[#A3A3A3]">{validationError}</p>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="mt-6 rounded-lg border border-red-500/40 bg-red-950/30 p-4 text-xs text-red-200">
-          <div className="flex items-start gap-3">
-            <XCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-red-300">Backend API Error</p>
-              <p className="mt-1">{error}</p>
-            </div>
+        <div className="rounded-lg border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] p-4 text-xs text-red-300 flex items-start gap-3">
+          <XCircle className="h-4 w-4 text-[#ef4444] mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-red-200">Backend API Error</p>
+            <p className="mt-1 text-[#A3A3A3]">{error}</p>
           </div>
         </div>
       )}
 
       {/* Main Layout Grid */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column: Controls (4 cols) */}
-        <div className="lg:col-span-4 space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Controls (4 cols on lg, 5 cols on xl) */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-6">
           {/* Scenario Selector Card */}
-          <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2 pb-3 border-b border-[#262a38]">
-              <FlaskConical className="h-4 w-4 text-orange-400" />
-              1. Select Traffic Scenario
+          <div className="rounded-lg border border-[#292929] bg-[#141414] p-5">
+            <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2 pb-3 border-b border-[#292929]">
+              <FlaskConical className="h-4 w-4 text-[#FF6A00]" />
+              <span>1. Select Traffic Scenario</span>
             </h2>
 
-            <div className="mt-4 space-y-2 text-xs">
+            <div className="mt-4 space-y-2.5 text-xs">
               <button
                 type="button"
                 onClick={() => setScenario('sudden_burst')}
-                className={`w-full text-left rounded-md p-3 transition-colors border ${
+                className={`w-full text-left rounded-md p-3.5 transition-all border ${
                   scenario === 'sudden_burst'
-                    ? 'bg-orange-500/15 border-orange-500/50 text-white'
-                    : 'bg-[#1c1f2b] border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                    ? 'bg-[rgba(255,106,0,0.08)] border-[#FF6A00] text-[#F5F5F5]'
+                    : 'bg-[#101010] border-[#292929] text-[#A3A3A3] hover:border-[#383838] hover:text-[#F5F5F5]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <Flame className="h-3.5 w-3.5 text-orange-400" />
+                  <span className="font-semibold flex items-center gap-2 text-sm text-[#F5F5F5]">
+                    <Flame className={`h-4 w-4 ${scenario === 'sudden_burst' ? 'text-[#FF6A00]' : 'text-[#737373]'}`} />
                     Sudden Traffic Burst
                   </span>
-                  <span className="rounded bg-[#0c0d12] px-1.5 py-0.5 text-[10px] text-orange-400 font-mono">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#191919] border border-[#292929] text-[#FF6A00]">
                     Controlled
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-xs text-[#737373] mt-1.5 leading-relaxed">
                   Injects an elevated Poisson rate during a defined window to test detector recall and detection delay.
                 </p>
               </button>
@@ -275,22 +267,22 @@ export default function SimulationLabPage() {
               <button
                 type="button"
                 onClick={() => setScenario('poisson_normal')}
-                className={`w-full text-left rounded-md p-3 transition-colors border ${
+                className={`w-full text-left rounded-md p-3.5 transition-all border ${
                   scenario === 'poisson_normal'
-                    ? 'bg-orange-500/15 border-orange-500/50 text-white'
-                    : 'bg-[#1c1f2b] border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                    ? 'bg-[rgba(255,106,0,0.08)] border-[#FF6A00] text-[#F5F5F5]'
+                    : 'bg-[#101010] border-[#292929] text-[#A3A3A3] hover:border-[#383838] hover:text-[#F5F5F5]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-semibold flex items-center gap-2 text-sm text-[#F5F5F5]">
+                    <CheckCircle2 className={`h-4 w-4 ${scenario === 'poisson_normal' ? 'text-emerald-400' : 'text-[#737373]'}`} />
                     Normal Poisson Traffic
                   </span>
-                  <span className="rounded bg-[#0c0d12] px-1.5 py-0.5 text-[10px] text-emerald-400 font-mono">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#191919] border border-[#292929] text-emerald-400">
                     Baseline
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-xs text-[#737373] mt-1.5 leading-relaxed">
                   Homogeneous Poisson arrivals X ~ Poisson(&lambda;). Tests empirical false alarm rate against &alpha;.
                 </p>
               </button>
@@ -298,22 +290,22 @@ export default function SimulationLabPage() {
               <button
                 type="button"
                 onClick={() => setScenario('rate_drift')}
-                className={`w-full text-left rounded-md p-3 transition-colors border ${
+                className={`w-full text-left rounded-md p-3.5 transition-all border ${
                   scenario === 'rate_drift'
-                    ? 'bg-orange-500/15 border-orange-500/50 text-white'
-                    : 'bg-[#1c1f2b] border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                    ? 'bg-[rgba(255,106,0,0.08)] border-[#FF6A00] text-[#F5F5F5]'
+                    : 'bg-[#101010] border-[#292929] text-[#A3A3A3] hover:border-[#383838] hover:text-[#F5F5F5]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
+                  <span className="font-semibold flex items-center gap-2 text-sm text-[#F5F5F5]">
+                    <TrendingUp className={`h-4 w-4 ${scenario === 'rate_drift' ? 'text-[#FF6A00]' : 'text-[#737373]'}`} />
                     Changing Traffic Rate
                   </span>
-                  <span className="rounded bg-[#0c0d12] px-1.5 py-0.5 text-[10px] text-blue-400 font-mono">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#191919] border border-[#292929] text-[#A3A3A3]">
                     Drift
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-xs text-[#737373] mt-1.5 leading-relaxed">
                   Non-stationary linear rate increase. Demonstrates why a static baseline fails when background trends shift.
                 </p>
               </button>
@@ -321,22 +313,22 @@ export default function SimulationLabPage() {
               <button
                 type="button"
                 onClick={() => setScenario('overdispersed')}
-                className={`w-full text-left rounded-md p-3 transition-colors border ${
+                className={`w-full text-left rounded-md p-3.5 transition-all border ${
                   scenario === 'overdispersed'
-                    ? 'bg-orange-500/15 border-orange-500/50 text-white'
-                    : 'bg-[#1c1f2b] border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                    ? 'bg-[rgba(255,106,0,0.08)] border-[#FF6A00] text-[#F5F5F5]'
+                    : 'bg-[#101010] border-[#292929] text-[#A3A3A3] hover:border-[#383838] hover:text-[#F5F5F5]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-purple-400" />
+                  <span className="font-semibold flex items-center gap-2 text-sm text-[#F5F5F5]">
+                    <Layers className={`h-4 w-4 ${scenario === 'overdispersed' ? 'text-[#FF6A00]' : 'text-[#737373]'}`} />
                     Overdispersed Traffic
                   </span>
-                  <span className="rounded bg-[#0c0d12] px-1.5 py-0.5 text-[10px] text-purple-400 font-mono">
-                    Negative Binomial
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#191919] border border-[#292929] text-[#A3A3A3]">
+                    NegBinomial
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-xs text-[#737373] mt-1.5 leading-relaxed">
                   Var(X) &gt; E[X]. Heavy-tailed arrivals violate the Poisson model, causing inflated false alarms.
                 </p>
               </button>
@@ -344,20 +336,20 @@ export default function SimulationLabPage() {
           </div>
 
           {/* Configuration Panel Card */}
-          <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2 pb-3 border-b border-[#262a38]">
-              <Sliders className="h-4 w-4 text-orange-400" />
-              2. Parameter Configuration
+          <div className="rounded-lg border border-[#292929] bg-[#141414] p-5">
+            <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2 pb-3 border-b border-[#292929]">
+              <Sliders className="h-4 w-4 text-[#FF6A00]" />
+              <span>2. Parameter Configuration</span>
             </h2>
 
             <div className="mt-4 space-y-4 text-xs">
               {/* Baseline Rate Per Second */}
               <div>
                 <div className="flex justify-between items-center">
-                  <label className="font-medium text-slate-300">
+                  <label className="font-medium text-[#F5F5F5]">
                     Baseline Rate ($r$):
                   </label>
-                  <span className="font-mono text-orange-400 font-semibold">
+                  <span className="font-mono text-[#FF6A00] font-semibold">
                     {baselineRatePerSecond} pkts/s
                   </span>
                 </div>
@@ -368,30 +360,30 @@ export default function SimulationLabPage() {
                   step="1"
                   value={baselineRatePerSecond}
                   onChange={(e) => setBaselineRatePerSecond(Number(e.target.value))}
-                  className="mt-1 w-full accent-orange-500"
+                  className="mt-2 w-full accent-[#FF6A00]"
                 />
-                <div className="flex justify-between text-[11px] text-slate-400 font-mono mt-0.5">
-                  <span>Window Expected &lambda;<sub>w</sub>:</span>
-                  <span className="text-emerald-400 font-bold">{lambdaWindow}</span>
+                <div className="flex justify-between text-[11px] text-[#737373] font-mono mt-1">
+                  <span>Expected Window &lambda;<sub>w</sub>:</span>
+                  <span className="text-[#F5F5F5] font-bold">{lambdaWindow} pkts</span>
                 </div>
               </div>
 
               {/* Duration and Window Size */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-300">Duration (s)</label>
+                  <label className="block font-medium text-[#F5F5F5] mb-1">Duration (s)</label>
                   <input
                     type="number"
                     min="10"
                     max="300"
                     value={durationSeconds}
                     onChange={(e) => setDurationSeconds(Number(e.target.value))}
-                    className="mt-1 w-full rounded-md border border-[#262a38] bg-[#1c1f2b] px-3 py-1.5 font-mono text-xs text-white focus:border-orange-500 focus:outline-none"
+                    className="w-full rounded-md border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                   />
-                  <span className="text-[10px] text-slate-400">Total duration</span>
+                  <span className="text-[10px] text-[#737373] mt-0.5 block">Total duration</span>
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-300">Window $W$ (s)</label>
+                  <label className="block font-medium text-[#F5F5F5] mb-1">Window $W$ (s)</label>
                   <input
                     type="number"
                     min="0.2"
@@ -399,72 +391,72 @@ export default function SimulationLabPage() {
                     step="0.5"
                     value={windowSeconds}
                     onChange={(e) => setWindowSeconds(Number(e.target.value))}
-                    className="mt-1 w-full rounded-md border border-[#262a38] bg-[#1c1f2b] px-3 py-1.5 font-mono text-xs text-white focus:border-orange-500 focus:outline-none"
+                    className="w-full rounded-md border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                   />
-                  <span className="text-[10px] text-slate-400">Aggregation window</span>
+                  <span className="text-[10px] text-[#737373] mt-0.5 block">Aggregation window</span>
                 </div>
               </div>
 
               {/* SCENARIO-SPECIFIC CONTROLS */}
               {/* A. Sudden Burst Controls */}
               {scenario === 'sudden_burst' && (
-                <div className="rounded border border-orange-500/30 bg-[#1c1f2b] p-3 space-y-3">
-                  <div className="flex items-center gap-1.5 text-orange-400 font-semibold text-[11px]">
+                <div className="rounded-md border border-[rgba(255,106,0,0.3)] bg-[rgba(255,106,0,0.04)] p-3.5 space-y-3">
+                  <div className="flex items-center gap-1.5 text-[#FF6A00] font-semibold text-xs">
                     <Flame className="h-3.5 w-3.5" />
-                    Injected Burst Settings
+                    <span>Injected Burst Settings</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <span className="text-[10px] text-slate-400">Start (s)</span>
+                      <span className="text-[10px] text-[#A3A3A3] block mb-1">Start (s)</span>
                       <input
                         type="number"
                         min="0"
                         max={durationSeconds - 2}
                         value={burstStart}
                         onChange={(e) => setBurstStart(Number(e.target.value))}
-                        className="mt-0.5 w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                        className="w-full rounded border border-[#292929] bg-[#101010] px-2 py-1.5 font-mono text-xs text-[#F5F5F5]"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Duration (s)</span>
+                      <span className="text-[10px] text-[#A3A3A3] block mb-1">Duration (s)</span>
                       <input
                         type="number"
                         min="1"
                         max={durationSeconds}
                         value={burstDuration}
                         onChange={(e) => setBurstDuration(Number(e.target.value))}
-                        className="mt-0.5 w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                        className="w-full rounded border border-[#292929] bg-[#101010] px-2 py-1.5 font-mono text-xs text-[#F5F5F5]"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Burst pkts/s</span>
+                      <span className="text-[10px] text-[#A3A3A3] block mb-1">Rate pkts/s</span>
                       <input
                         type="number"
                         min="1"
                         max="200"
                         value={burstRatePerSecond}
                         onChange={(e) => setBurstRatePerSecond(Number(e.target.value))}
-                        className="mt-0.5 w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                        className="w-full rounded border border-[#292929] bg-[#101010] px-2 py-1.5 font-mono text-xs text-[#F5F5F5]"
                       />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    Burst &lambda;<sub>w</sub>: <strong className="text-orange-400">{burstLambdaWindow}</strong> pkts / {windowSeconds}s window.
+                  <p className="text-[11px] text-[#A3A3A3] font-mono">
+                    Burst &lambda;<sub>w</sub>: <strong className="text-[#FF6A00]">{burstLambdaWindow}</strong> pkts / {windowSeconds}s window
                   </p>
                 </div>
               )}
 
               {/* B. Rate Drift Controls */}
               {scenario === 'rate_drift' && (
-                <div className="rounded border border-blue-500/30 bg-[#1c1f2b] p-3 space-y-2">
-                  <div className="flex items-center gap-1.5 text-blue-400 font-semibold text-[11px]">
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    Linear Drift Target
+                <div className="rounded-md border border-[#292929] bg-[#101010] p-3.5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#F5F5F5] font-semibold text-xs">
+                    <TrendingUp className="h-3.5 w-3.5 text-[#FF6A00]" />
+                    <span>Linear Drift Target</span>
                   </div>
                   <div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-300">End Rate at T+{durationSeconds}s:</span>
-                      <span className="font-mono text-blue-400 font-semibold">{rateDriftEndPerSecond} pkts/s</span>
+                      <span className="text-[#A3A3A3]">End Rate at T+{durationSeconds}s:</span>
+                      <span className="font-mono text-[#FF6A00] font-semibold">{rateDriftEndPerSecond} pkts/s</span>
                     </div>
                     <input
                       type="range"
@@ -473,26 +465,26 @@ export default function SimulationLabPage() {
                       step="5"
                       value={rateDriftEndPerSecond}
                       onChange={(e) => setRateDriftEndPerSecond(Number(e.target.value))}
-                      className="mt-1 w-full accent-blue-500"
+                      className="mt-2 w-full accent-[#FF6A00]"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Traffic rate shifts from {baselineRatePerSecond} to {rateDriftEndPerSecond} pkts/s.
+                  <p className="text-[10px] text-[#737373]">
+                    Rate shifts from {baselineRatePerSecond} to {rateDriftEndPerSecond} pkts/s across trial.
                   </p>
                 </div>
               )}
 
               {/* C. Overdispersed Controls */}
               {scenario === 'overdispersed' && (
-                <div className="rounded border border-purple-500/30 bg-[#1c1f2b] p-3 space-y-2">
-                  <div className="flex items-center gap-1.5 text-purple-400 font-semibold text-[11px]">
-                    <Layers className="h-3.5 w-3.5" />
-                    Dispersion Parameter
+                <div className="rounded-md border border-[#292929] bg-[#101010] p-3.5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#F5F5F5] font-semibold text-xs">
+                    <Layers className="h-3.5 w-3.5 text-[#FF6A00]" />
+                    <span>Dispersion Parameter</span>
                   </div>
                   <div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-300">Variance / Mean ($D$):</span>
-                      <span className="font-mono text-purple-400 font-semibold">{dispersionFactor.toFixed(1)}x</span>
+                      <span className="text-[#A3A3A3]">Variance / Mean ($D$):</span>
+                      <span className="font-mono text-[#FF6A00] font-semibold">{dispersionFactor.toFixed(1)}x</span>
                     </div>
                     <input
                       type="range"
@@ -501,30 +493,30 @@ export default function SimulationLabPage() {
                       step="0.2"
                       value={dispersionFactor}
                       onChange={(e) => setDispersionFactor(Number(e.target.value))}
-                      className="mt-1 w-full accent-purple-500"
+                      className="mt-2 w-full accent-[#FF6A00]"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Var(X) = {dispersionFactor.toFixed(1)} &times; E[X]. Higher D increases burstiness and false alerts.
+                  <p className="text-[10px] text-[#737373]">
+                    Var(X) = {dispersionFactor.toFixed(1)} &times; E[X]. Higher D inflates Poisson false alerts.
                   </p>
                 </div>
               )}
 
               {/* Significance Threshold Alpha */}
               <div>
-                <label className="block font-medium text-slate-300 mb-1">
-                  Significance Threshold ($\alpha$)
+                <label className="block font-medium text-[#F5F5F5] mb-1.5">
+                  Significance Threshold (&alpha;)
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   {[0.05, 0.01, 0.001].map((val) => (
                     <button
                       key={val}
                       type="button"
                       onClick={() => setAlpha(val)}
-                      className={`rounded py-1.5 text-xs font-mono font-medium transition-colors ${
+                      className={`rounded py-1.5 text-xs font-mono font-medium transition-all ${
                         alpha === val
-                          ? 'bg-orange-500/20 border border-orange-500/50 text-orange-400'
-                          : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#252a3b]'
+                          ? 'bg-[rgba(255,106,0,0.15)] border border-[#FF6A00] text-[#FF6A00]'
+                          : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       {val}
@@ -535,7 +527,7 @@ export default function SimulationLabPage() {
 
               {/* Random Seed */}
               <div>
-                <label className="block font-medium text-slate-300 mb-1">
+                <label className="block font-medium text-[#F5F5F5] mb-1.5">
                   Random Seed (Reproducibility)
                 </label>
                 <div className="flex gap-2">
@@ -543,18 +535,18 @@ export default function SimulationLabPage() {
                     type="number"
                     value={randomSeed}
                     onChange={(e) => setRandomSeed(Number(e.target.value))}
-                    className="flex-1 rounded-md border border-[#262a38] bg-[#1c1f2b] px-3 py-1.5 font-mono text-xs text-white focus:border-orange-500 focus:outline-none"
+                    className="flex-1 rounded-md border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleRegenerateSeed}
-                    className="rounded-md bg-[#1c1f2b] border border-[#262a38] px-2.5 py-1.5 text-slate-300 hover:text-white hover:bg-[#252a3b]"
+                    className="rounded-md bg-[#101010] border border-[#292929] px-3 py-2 text-[#A3A3A3] hover:text-[#F5F5F5] hover:border-[#383838] transition-colors"
                     title="Generate new random seed"
                   >
                     <Shuffle className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-[#737373] mt-1">
                   Same seed and parameters reproduce identical observations.
                 </p>
               </div>
@@ -564,17 +556,17 @@ export default function SimulationLabPage() {
                 type="button"
                 onClick={handleRunSimulation}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-md bg-orange-600 py-2.5 text-xs font-semibold text-white shadow hover:bg-orange-500 disabled:opacity-50 transition-colors mt-2"
+                className="w-full btn-primary justify-center py-2.5 mt-2"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    Running Simulation on FastAPI Backend...
+                    <span>Executing on FastAPI Backend...</span>
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4 fill-current" />
-                    Run Simulation Experiment
+                    <span>Run Simulation Experiment</span>
                   </>
                 )}
               </button>
@@ -582,50 +574,45 @@ export default function SimulationLabPage() {
           </div>
         </div>
 
-        {/* Right Column: Visualizations, Metrics, and Inspector (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* Right Column: Visualizations, Metrics, and Inspector (7 cols on lg, 8 cols on xl) */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-6">
           {simulationResult ? (
             <>
               {/* Experiment Summary Banner */}
-              <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-4 text-xs">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-[#262a38]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white text-sm">
+              <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 text-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#292929]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-heading font-semibold text-[#F5F5F5] text-sm">
                       Experiment: {simulationResult.experiment_id}
                     </span>
-                    <span className="rounded bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[11px] font-mono text-orange-400">
-                      {simulationResult.scenario}
-                    </span>
+                    <StatusBadge label={simulationResult.scenario} variant="accent" />
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/experiments?selected=${simulationResult.experiment_id}`}
-                      className="text-[11px] text-orange-400 hover:text-orange-300 flex items-center gap-1 font-medium bg-[#1c1f2b] px-2 py-0.5 rounded border border-[#2d3244]"
+                      className="btn-secondary text-[11px] py-1 px-2.5"
                       title="Inspect in Experiment History"
                     >
-                      <Database className="h-3 w-3" />
+                      <Database className="h-3 w-3 text-[#A3A3A3]" />
                       <span>Saved in History</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-3 w-3 text-[#737373]" />
                     </Link>
                     <Link
                       href={`/analysis?experiment_id=${simulationResult.experiment_id}`}
-                      className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium bg-[#1c1f2b] px-2 py-0.5 rounded border border-[#2d3244]"
+                      className="btn-secondary text-[11px] py-1 px-2.5"
                       title="Inspect in Statistical Analysis"
                     >
                       <span>Analyze in Stats</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-3 w-3 text-[#737373]" />
                     </Link>
-                    <span className="text-slate-400 font-mono text-[11px]">
-                      Seed: {randomSeed} | Windows: {simulationResult.total_windows} x {simulationResult.window_seconds}s
-                    </span>
                   </div>
                 </div>
 
-                <div className="mt-3 text-slate-300 leading-relaxed text-[11px]">
+                <div className="text-[#A3A3A3] leading-relaxed text-xs space-y-2">
                   <p>{simulationResult.summary}</p>
                   {simulationResult.model_limitation_note && (
-                    <div className="mt-2 rounded bg-[#0c0d12] border border-[#262a38] p-2.5 text-slate-300">
-                      <span className="font-semibold text-orange-400">Statistical Context & Model Limitations: </span>
+                    <div className="rounded-md bg-[#101010] border border-[#292929] p-3 text-[#A3A3A3]">
+                      <span className="font-semibold text-[#FF6A00]">Statistical Context: </span>
                       {simulationResult.model_limitation_note}
                     </div>
                   )}
@@ -633,56 +620,70 @@ export default function SimulationLabPage() {
               </div>
 
               {/* Traffic Timeline Chart */}
-              <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-[#262a38]">
+              <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#292929]">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">
-                      Traffic Arrival Time Series & Detection Events
+                    <h3 className="font-heading text-sm font-semibold text-[#F5F5F5]">
+                      Traffic Arrival Time Series &amp; Detection Events
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-[#737373]">
                       Comparing observed arrival counts against Poisson baseline $\lambda_w = {simulationResult.lambda_window}$.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
-                    <span className="flex items-center gap-1.5 text-slate-300">
-                      <span className="h-2 w-2 rounded-full bg-orange-500" />
+                    <span className="flex items-center gap-1.5 text-[#A3A3A3]">
+                      <span className="h-2 w-2 rounded-full bg-[#FF6A00]" />
                       Observed ($x$)
                     </span>
-                    <span className="flex items-center gap-1.5 text-slate-300">
-                      <span className="h-0.5 w-3 bg-emerald-400" />
+                    <span className="flex items-center gap-1.5 text-[#A3A3A3]">
+                      <span className="h-0.5 w-3 bg-[#A3A3A3]" />
                       Baseline &lambda;<sub>w</sub> ({simulationResult.lambda_window})
                     </span>
                     {simulationResult.injected_burst_count > 0 && (
-                      <span className="flex items-center gap-1.5 text-amber-300">
-                        <span className="h-2 w-2 bg-amber-500/40 border border-amber-500" />
-                        Injected Burst (Ground Truth)
+                      <span className="flex items-center gap-1.5 text-[#FF6A00]">
+                        <span className="h-2 w-2 bg-[rgba(255,106,0,0.4)] border border-[#FF6A00]" />
+                        Injected Burst
                       </span>
                     )}
-                    <span className="flex items-center gap-1.5 text-red-400">
-                      <span className="h-2 w-2 rounded-full bg-red-500 border border-red-300" />
+                    <span className="flex items-center gap-1.5 text-[#ef4444]">
+                      <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
                       Alert ($p &lt; \alpha$)
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 h-72 w-full">
+                <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="simFlowGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="#FF6A00" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="#FF6A00" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#262a38" vertical={false} />
-                      <XAxis dataKey="window" stroke="#64748b" fontSize={11} tickLine={false} interval={Math.max(1, Math.floor(chartData.length / 10))} />
-                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#292929" vertical={false} />
+                      <XAxis
+                        dataKey="window"
+                        stroke="#737373"
+                        fontSize={11}
+                        fontFamily="var(--font-mono)"
+                        tickLine={false}
+                        interval={Math.max(1, Math.floor(chartData.length / 10))}
+                      />
+                      <YAxis
+                        stroke="#737373"
+                        fontSize={11}
+                        fontFamily="var(--font-mono)"
+                        tickLine={false}
+                      />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#1c1f2b',
-                          borderColor: '#262a38',
-                          borderRadius: '6px',
+                          backgroundColor: '#141414',
+                          borderColor: '#383838',
+                          borderRadius: '8px',
                           fontSize: '12px',
+                          fontFamily: 'var(--font-mono)',
+                          color: '#F5F5F5',
                         }}
                       />
 
@@ -691,10 +692,10 @@ export default function SimulationLabPage() {
                         <ReferenceArea
                           x1={`T+${burstStart.toFixed(1)}s`}
                           x2={`T+${Math.min(durationSeconds, burstStart + burstDuration).toFixed(1)}s`}
-                          fill="#f59e0b"
-                          fillOpacity={0.15}
-                          stroke="#f59e0b"
-                          strokeOpacity={0.5}
+                          fill="#FF6A00"
+                          fillOpacity={0.12}
+                          stroke="#FF6A00"
+                          strokeOpacity={0.4}
                           strokeDasharray="3 3"
                         />
                       )}
@@ -702,13 +703,14 @@ export default function SimulationLabPage() {
                       {/* Baseline Reference Line */}
                       <ReferenceLine
                         y={simulationResult.lambda_window}
-                        stroke="#10b981"
+                        stroke="#A3A3A3"
                         strokeDasharray="4 4"
                         label={{
                           value: `λw=${simulationResult.lambda_window}`,
-                          fill: '#10b981',
+                          fill: '#A3A3A3',
                           fontSize: 10,
                           position: 'insideTopLeft',
+                          fontFamily: 'var(--font-mono)',
                         }}
                       />
 
@@ -716,7 +718,7 @@ export default function SimulationLabPage() {
                       <Area
                         type="monotone"
                         dataKey="count"
-                        stroke="#f97316"
+                        stroke="#FF6A00"
                         strokeWidth={2}
                         fill="url(#simFlowGradient)"
                         name="Observed Count"
@@ -737,111 +739,111 @@ export default function SimulationLabPage() {
 
               {/* Performance Metrics & Confusion Matrix */}
               {simulationResult.evaluation && (
-                <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-[#262a38]">
+                <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#292929]">
                     <div>
-                      <h3 className="text-sm font-semibold text-white">
+                      <h3 className="font-heading text-sm font-semibold text-[#F5F5F5]">
                         Detection Performance Metrics
                       </h3>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-[#737373]">
                         {simulationResult.injected_burst_count > 0
-                          ? 'Evaluated against strictly defined injected burst intervals.'
-                          : 'Evaluated under null hypothesis / mismatched traffic (all windows benign background).'}
+                          ? 'Evaluated against defined injected burst intervals.'
+                          : 'Evaluated under null hypothesis / background baseline.'}
                       </p>
                     </div>
-                    <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs text-emerald-400 font-mono">
-                      Mathematical Verification
+                    <span className="font-mono text-xs text-emerald-400 bg-[rgba(34,197,94,0.1)] px-2.5 py-0.5 rounded border border-[rgba(34,197,94,0.25)]">
+                      Validated
                     </span>
                   </div>
 
                   {/* Summary Metric Cards */}
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">Precision</span>
-                      <p className="mt-1 text-xl font-bold font-mono text-white">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">Precision</span>
+                      <p className="mt-1 text-xl font-bold font-mono text-[#F5F5F5]">
                         {simulationResult.injected_burst_count > 0
                           ? `${(simulationResult.evaluation.precision * 100).toFixed(1)}%`
                           : 'N/A'}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">
+                      <span className="text-[10px] text-[#737373] font-mono">
                         {simulationResult.injected_burst_count > 0 ? 'TP / (TP + FP)' : 'No Bursts'}
                       </span>
                     </div>
 
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">Recall</span>
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">Recall</span>
                       <p className="mt-1 text-xl font-bold font-mono text-emerald-400">
                         {simulationResult.injected_burst_count > 0
                           ? `${(simulationResult.evaluation.recall * 100).toFixed(1)}%`
                           : 'N/A'}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">
+                      <span className="text-[10px] text-[#737373] font-mono">
                         {simulationResult.injected_burst_count > 0 ? 'TP / (TP + FN)' : 'No Bursts'}
                       </span>
                     </div>
 
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">F1 Score</span>
-                      <p className="mt-1 text-xl font-bold font-mono text-orange-400">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">F1 Score</span>
+                      <p className="mt-1 text-xl font-bold font-mono text-[#FF6A00]">
                         {simulationResult.injected_burst_count > 0
                           ? simulationResult.evaluation.f1_score.toFixed(3)
                           : 'N/A'}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">Harmonic Mean</span>
+                      <span className="text-[10px] text-[#737373] font-mono">Harmonic Mean</span>
                     </div>
 
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">False Alarm Rate</span>
-                      <p className="mt-1 text-xl font-bold font-mono text-red-400">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">False Alarm Rate</span>
+                      <p className="mt-1 text-xl font-bold font-mono text-[#ef4444]">
                         {(simulationResult.evaluation.false_positive_rate * 100).toFixed(1)}%
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">FP / (FP + TN)</span>
+                      <span className="text-[10px] text-[#737373] font-mono">FP / (FP + TN)</span>
                     </div>
 
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">Detection Delay</span>
-                      <p className="mt-1 text-xl font-bold font-mono text-blue-400">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center col-span-2 sm:col-span-1">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A3A3A3] font-medium">Detection Delay</span>
+                      <p className="mt-1 text-xl font-bold font-mono text-[#F5F5F5]">
                         {simulationResult.evaluation.detection_delay_seconds != null
                           ? `${simulationResult.evaluation.detection_delay_seconds.toFixed(1)}s`
-                          : 'N/A'}
+                          : '0.0s'}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">Burst to Alert</span>
+                      <span className="text-[10px] text-[#737373] font-mono">Burst to Alert</span>
                     </div>
                   </div>
 
                   {/* Confusion Matrix */}
-                  <div className="mt-5 rounded border border-[#262a38] bg-[#0c0d12] p-4">
-                    <h4 className="text-xs font-semibold text-slate-300 mb-2">
+                  <div className="mt-4 rounded-md border border-[#292929] bg-[#101010] p-4 space-y-2">
+                    <h4 className="text-xs font-semibold text-[#A3A3A3]">
                       Confusion Matrix (Total Windows: {simulationResult.total_windows})
                     </h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                      <div className="rounded bg-[#1c1f2b] p-2.5 border border-emerald-500/20">
+                    <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+                      <div className="rounded bg-[#141414] p-3 border border-[rgba(34,197,94,0.25)]">
                         <span className="text-emerald-400 font-semibold">True Positives (TP):</span>
-                        <span className="float-right text-white font-bold">
+                        <span className="float-right text-[#F5F5F5] font-bold text-sm">
                           {simulationResult.evaluation.true_positives}
                         </span>
-                        <p className="text-[10px] text-slate-400 mt-1">Injected burst windows correctly flagged ($p &lt; \alpha$).</p>
+                        <p className="text-[11px] text-[#737373] mt-1">Injected burst windows correctly flagged.</p>
                       </div>
-                      <div className="rounded bg-[#1c1f2b] p-2.5 border border-red-500/20">
-                        <span className="text-red-400 font-semibold">False Positives (FP):</span>
-                        <span className="float-right text-white font-bold">
+                      <div className="rounded bg-[#141414] p-3 border border-[rgba(239,68,68,0.25)]">
+                        <span className="text-[#ef4444] font-semibold">False Positives (FP):</span>
+                        <span className="float-right text-[#F5F5F5] font-bold text-sm">
                           {simulationResult.evaluation.false_positives}
                         </span>
-                        <p className="text-[10px] text-slate-400 mt-1">Normal baseline windows falsely flagged as bursts.</p>
+                        <p className="text-[11px] text-[#737373] mt-1">Normal baseline windows falsely flagged.</p>
                       </div>
-                      <div className="rounded bg-[#1c1f2b] p-2.5 border border-amber-500/20">
-                        <span className="text-amber-400 font-semibold">False Negatives (FN):</span>
-                        <span className="float-right text-white font-bold">
+                      <div className="rounded bg-[#141414] p-3 border border-[rgba(255,106,0,0.25)]">
+                        <span className="text-[#FF6A00] font-semibold">False Negatives (FN):</span>
+                        <span className="float-right text-[#F5F5F5] font-bold text-sm">
                           {simulationResult.evaluation.false_negatives}
                         </span>
-                        <p className="text-[10px] text-slate-400 mt-1">Injected burst windows missed by the detector.</p>
+                        <p className="text-[11px] text-[#737373] mt-1">Injected burst windows missed by detector.</p>
                       </div>
-                      <div className="rounded bg-[#1c1f2b] p-2.5 border border-slate-700">
-                        <span className="text-slate-300 font-semibold">True Negatives (TN):</span>
-                        <span className="float-right text-white font-bold">
+                      <div className="rounded bg-[#141414] p-3 border border-[#292929]">
+                        <span className="text-[#A3A3A3] font-semibold">True Negatives (TN):</span>
+                        <span className="float-right text-[#F5F5F5] font-bold text-sm">
                           {simulationResult.evaluation.true_negatives}
                         </span>
-                        <p className="text-[10px] text-slate-400 mt-1">Normal baseline windows correctly passed.</p>
+                        <p className="text-[11px] text-[#737373] mt-1">Normal baseline windows correctly passed.</p>
                       </div>
                     </div>
                   </div>
@@ -849,27 +851,27 @@ export default function SimulationLabPage() {
               )}
 
               {/* Observation Detail Inspector */}
-              <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-[#262a38]">
+              <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-[#292929]">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">
-                      Observation Telemetry & Statistical Inspector
+                    <h3 className="font-heading text-sm font-semibold text-[#F5F5F5]">
+                      Observation Telemetry &amp; Statistical Inspector
                     </h3>
-                    <p className="text-xs text-slate-400">
-                      Click any observation row to view the detailed mathematical explanation.
+                    <p className="text-xs text-[#737373]">
+                      Click any row in the table to inspect exact mathematical probabilities.
                     </p>
                   </div>
 
                   {/* Filter Selector */}
-                  <div className="flex items-center gap-1.5 rounded-md bg-[#1c1f2b] border border-[#262a38] p-1 text-xs">
-                    <Filter className="h-3.5 w-3.5 text-slate-400 ml-1" />
+                  <div className="flex items-center gap-1.5 rounded-md bg-[#101010] border border-[#292929] p-1 text-xs">
+                    <Filter className="h-3.5 w-3.5 text-[#737373] ml-1" />
                     <button
                       type="button"
                       onClick={() => setTableFilter('all')}
-                      className={`px-2 py-0.5 rounded text-[11px] ${
+                      className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
                         tableFilter === 'all'
-                          ? 'bg-orange-500 text-white font-semibold'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-[#FF6A00] text-white'
+                          : 'text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       All ({simulationResult.observations.length})
@@ -877,10 +879,10 @@ export default function SimulationLabPage() {
                     <button
                       type="button"
                       onClick={() => setTableFilter('alerts_only')}
-                      className={`px-2 py-0.5 rounded text-[11px] ${
+                      className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
                         tableFilter === 'alerts_only'
-                          ? 'bg-red-500 text-white font-semibold'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-[#ef4444] text-white'
+                          : 'text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       Alerts Only ({simulationResult.detected_burst_count})
@@ -889,13 +891,13 @@ export default function SimulationLabPage() {
                       <button
                         type="button"
                         onClick={() => setTableFilter('bursts_only')}
-                        className={`px-2 py-0.5 rounded text-[11px] ${
+                        className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
                           tableFilter === 'bursts_only'
-                            ? 'bg-amber-500 text-white font-semibold'
-                            : 'text-slate-400 hover:text-white'
+                            ? 'bg-[#FF6A00] text-white'
+                            : 'text-[#A3A3A3] hover:text-[#F5F5F5]'
                         }`}
                       >
-                        Injected Bursts ({simulationResult.injected_burst_count})
+                        Injected ({simulationResult.injected_burst_count})
                       </button>
                     )}
                   </div>
@@ -903,67 +905,62 @@ export default function SimulationLabPage() {
 
                 {/* Selected Window Detail Callout */}
                 {selectedObservation && selectedDetection && (
-                  <div className="mt-4 rounded-lg border border-orange-500/40 bg-[#0c0d12] p-4 text-xs font-mono">
-                    <div className="flex items-center justify-between pb-2 border-b border-[#262a38]">
-                      <span className="font-semibold text-white">
+                  <div className="rounded-md border border-[rgba(255,106,0,0.35)] bg-[#101010] p-4 text-xs font-mono space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#292929]">
+                      <span className="font-semibold text-[#F5F5F5]">
                         Inspected Window: {selectedObservation.timestamp}
                       </span>
-                      <span
-                        className={`rounded px-2 py-0.5 text-[11px] font-bold ${
-                          selectedDetection.is_burst
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}
-                      >
-                        {selectedDetection.is_burst ? 'BURST ALERT' : 'NORMAL'}
-                      </span>
+                      <StatusBadge
+                        label={selectedDetection.is_burst ? 'BURST ALERT' : 'NORMAL'}
+                        variant={selectedDetection.is_burst ? 'error' : 'success'}
+                      />
                     </div>
 
-                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <span className="text-[10px] text-slate-400">Observed Count ($x$):</span>
-                        <p className="text-base font-bold text-white">{selectedObservation.count}</p>
+                        <span className="text-[10px] text-[#737373] block">Observed Count ($x$):</span>
+                        <p className="text-base font-bold text-[#F5F5F5]">{selectedObservation.count}</p>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400">Baseline (&lambda;<sub>w</sub>):</span>
-                        <p className="text-base font-bold text-slate-300">{selectedDetection.expected_rate}</p>
+                        <span className="text-[10px] text-[#737373] block">Baseline (&lambda;<sub>w</sub>):</span>
+                        <p className="text-base font-bold text-[#A3A3A3]">{selectedDetection.expected_rate}</p>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400">Upper-Tail Prob $p$:</span>
-                        <p className="text-base font-bold text-orange-400">
+                        <span className="text-[10px] text-[#737373] block">Upper-Tail Prob $p$:</span>
+                        <p className="text-base font-bold text-[#FF6A00]">
                           {formatProbability(selectedDetection.p_value)}
                         </p>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400">Ground Truth:</span>
-                        <p className="text-base font-bold text-amber-400">
+                        <span className="text-[10px] text-[#737373] block">Ground Truth:</span>
+                        <p className="text-base font-bold text-[#F5F5F5]">
                           {selectedObservation.ground_truth ? 'Injected Burst' : 'Normal Baseline'}
                         </p>
                       </div>
                     </div>
 
-                    <p className="mt-3 text-[11px] text-slate-300 font-sans leading-relaxed">
-                      <strong>Mathematical Reasoning: </strong>
+                    <p className="text-xs text-[#A3A3A3] font-sans leading-relaxed pt-1">
+                      <strong className="text-[#F5F5F5]">Reasoning: </strong>
                       {selectedDetection.interpretation}
                     </p>
                   </div>
                 )}
 
                 {/* Table */}
-                <div className="mt-4 max-h-64 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto rounded-md border border-[#292929]">
                   <table className="w-full text-left text-xs font-mono">
-                    <thead className="sticky top-0 bg-[#14161f] border-b border-[#262a38] text-slate-400 text-[11px]">
+                    <thead className="sticky top-0 bg-[#101010] border-b border-[#292929] text-[#737373] text-[11px]">
                       <tr>
-                        <th className="py-2 px-3">Window</th>
-                        <th className="py-2 px-3">Count ($x$)</th>
-                        <th className="py-2 px-3">Baseline (&lambda;<sub>w</sub>)</th>
-                        <th className="py-2 px-3">Prob $P(X \ge x)$</th>
-                        <th className="py-2 px-3">Decision</th>
-                        <th className="py-2 px-3">Ground Truth</th>
-                        <th className="py-2 px-3 text-right">Inspect</th>
+                        <th className="py-2.5 px-3">Window</th>
+                        <th className="py-2.5 px-3">Count ($x$)</th>
+                        <th className="py-2.5 px-3">Baseline (&lambda;<sub>w</sub>)</th>
+                        <th className="py-2.5 px-3">Prob $P(X \ge x)$</th>
+                        <th className="py-2.5 px-3">Decision</th>
+                        <th className="py-2.5 px-3">Ground Truth</th>
+                        <th className="py-2.5 px-3 text-right">Inspect</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#262a38]/60">
+                    <tbody className="divide-y divide-[#202020]">
                       {filteredIndices.map(({ obs, det, idx }) => {
                         const isAlert = det?.is_burst;
                         const isSelected = selectedObservationIdx === idx;
@@ -973,38 +970,34 @@ export default function SimulationLabPage() {
                             onClick={() => setSelectedObservationIdx(idx)}
                             className={`cursor-pointer transition-colors ${
                               isSelected
-                                ? 'bg-orange-500/20'
+                                ? 'bg-[rgba(255,106,0,0.15)]'
                                 : isAlert
-                                ? 'bg-red-950/20 hover:bg-red-950/30'
-                                : 'hover:bg-[#1c1f2b]/60'
+                                ? 'bg-[rgba(239,68,68,0.06)] hover:bg-[rgba(239,68,68,0.12)]'
+                                : 'hover:bg-[#191919]'
                             }`}
                           >
-                            <td className="py-2 px-3 text-slate-300">{obs.timestamp}</td>
-                            <td className="py-2 px-3 font-semibold text-white">{obs.count}</td>
-                            <td className="py-2 px-3 text-slate-400">{det?.expected_rate}</td>
-                            <td className="py-2 px-3 text-slate-300">
+                            <td className="py-2 px-3 text-[#A3A3A3]">{obs.timestamp}</td>
+                            <td className="py-2 px-3 font-semibold text-[#F5F5F5]">{obs.count}</td>
+                            <td className="py-2 px-3 text-[#737373]">{det?.expected_rate}</td>
+                            <td className="py-2 px-3 text-[#A3A3A3]">
                               {det ? formatProbability(det.p_value) : '—'}
                             </td>
                             <td className="py-2 px-3">
                               {isAlert ? (
-                                <span className="inline-flex items-center rounded bg-red-500/20 border border-red-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-red-400">
-                                  BURST
-                                </span>
+                                <StatusBadge label="BURST" variant="error" />
                               ) : (
-                                <span className="inline-flex items-center rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-400">
-                                  NORMAL
-                                </span>
+                                <StatusBadge label="NORMAL" variant="success" />
                               )}
                             </td>
                             <td className="py-2 px-3">
                               {obs.ground_truth ? (
-                                <span className="text-amber-400 font-semibold">Injected Burst</span>
+                                <span className="text-[#FF6A00] font-semibold">Injected</span>
                               ) : (
-                                <span className="text-slate-400">Normal</span>
+                                <span className="text-[#737373]">Normal</span>
                               )}
                             </td>
-                            <td className="py-2 px-3 text-right text-slate-400">
-                              <Eye className="h-3.5 w-3.5 inline text-slate-400 hover:text-white" />
+                            <td className="py-2 px-3 text-right text-[#737373]">
+                              <Eye className="h-3.5 w-3.5 inline hover:text-[#F5F5F5]" />
                             </td>
                           </tr>
                         );
@@ -1016,30 +1009,26 @@ export default function SimulationLabPage() {
             </>
           ) : (
             /* Simulation Empty State */
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#262a38] bg-[#14161f]/60 p-16 text-center">
-              <FlaskConical className="h-12 w-12 text-slate-600 mb-3" />
-              <h3 className="text-base font-semibold text-white">
-                Simulation Laboratory Ready
-              </h3>
-              <p className="max-w-md text-xs text-slate-400 mt-2 leading-relaxed">
-                Configure your scenario parameters on the left and click <strong>Run Simulation Experiment</strong>.
-                The experiment will execute deterministically via the FastAPI backend and display
-                arrival time-series plots, alert markers, precision/recall metrics, and inspection telemetry.
-              </p>
-              <div className="mt-6 flex items-center gap-2 text-xs text-slate-400 font-mono">
-                <span className="rounded bg-[#1c1f2b] border border-[#262a38] px-2.5 py-1">
-                  1. Choose Scenario
-                </span>
-                <ArrowRight className="h-3 w-3" />
-                <span className="rounded bg-[#1c1f2b] border border-[#262a38] px-2.5 py-1">
-                  2. Set Rate & Duration
-                </span>
-                <ArrowRight className="h-3 w-3" />
-                <span className="rounded bg-[#1c1f2b] border border-[#262a38] px-2.5 py-1">
-                  3. Analyze Telemetry
-                </span>
-              </div>
-            </div>
+            <EmptyState
+              icon={FlaskConical}
+              title="Simulation Laboratory Ready"
+              description="Configure scenario parameters on the left and click Run Simulation Experiment. The experiment executes deterministically via FastAPI and outputs arrival plots, anomaly markers, precision/recall metrics, and inspection telemetry."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-[#737373] font-mono">
+                  <span className="rounded bg-[#101010] border border-[#292929] px-2.5 py-1">
+                    1. Choose Scenario
+                  </span>
+                  <ArrowRight className="h-3 w-3 text-[#383838]" />
+                  <span className="rounded bg-[#101010] border border-[#292929] px-2.5 py-1">
+                    2. Set Rate &amp; Duration
+                  </span>
+                  <ArrowRight className="h-3 w-3 text-[#383838]" />
+                  <span className="rounded bg-[#101010] border border-[#292929] px-2.5 py-1">
+                    3. Analyze Telemetry
+                  </span>
+                </div>
+              }
+            />
           )}
         </div>
       </div>

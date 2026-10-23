@@ -46,6 +46,9 @@ import {
   TrafficObservation,
 } from '@/lib/types';
 import { formatProbability } from '@/lib/utils';
+import PageHeader from '@/components/ui/PageHeader';
+import StatusBadge from '@/components/ui/StatusBadge';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function HistoricalReplayPage() {
   // Step 1: File Selection & Preview State
@@ -293,45 +296,36 @@ export default function HistoricalReplayPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
-      <div className="border-b border-[#262a38] pb-6">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-400">
-          <span>Primary Page Owner: Abishek Joseph E (URK25CS1002)</span>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-1">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Historical Traffic Replay & Analysis
-            </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Ingest historical network traffic CSV flow summaries (e.g. CICIDS2017), calibrate an unpolluted
-              Poisson baseline, and detect burst anomalies using the authoritative SciPy upper-tail engine.
-            </p>
-          </div>
-          {analysisResult && (
+      <PageHeader
+        title="Historical Traffic Replay & Analysis"
+        subtitle="Ingest historical network traffic CSV flow summaries (e.g. CICIDS2017), calibrate an unpolluted Poisson baseline, and detect burst anomalies using the authoritative SciPy upper-tail engine."
+        badge="25CS203 Micro-Project"
+        actions={
+          analysisResult ? (
             <button
               type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 rounded-md bg-orange-600 px-3.5 py-2 text-xs font-semibold text-white shadow hover:bg-orange-500 transition-colors shrink-0"
+              className="btn-primary"
             >
               <Download className="h-4 w-4" />
-              Export Aggregated CSV
+              <span>Export Aggregated CSV</span>
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
-      {/* Critical Measurement Type Banner */}
-      <div className="mt-6 rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 text-xs text-amber-200">
+      {/* Measurement Semantics Banner */}
+      <div className="rounded-lg border border-[rgba(255,106,0,0.3)] bg-[rgba(255,106,0,0.05)] p-4 text-xs">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-[#FF6A00] mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="font-semibold text-amber-300">
+            <p className="font-semibold text-[#F5F5F5]">
               Measurement Semantics: Network Flows per Observation Window (flow_count)
             </p>
-            <p className="text-slate-300 leading-relaxed">
-              CSV network flow summaries represent aggregated connection records, <strong>not individual raw packets</strong>.
+            <p className="text-[#A3A3A3] leading-relaxed">
+              CSV network flow summaries represent aggregated connection records, <strong className="text-[#F5F5F5]">not individual raw packets</strong>.
               The Poisson detector strictly receives expected flow arrivals per window (&lambda;<sub>w</sub>).
               Ground-truth flow labels indicate attack connection intent; they do not automatically guarantee volumetric traffic surges.
             </p>
@@ -339,16 +333,14 @@ export default function HistoricalReplayPage() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* =========================================================================
-            LEFT COLUMN: CSV Upload, Column Mapping, and Baseline Calibration
-           ========================================================================= */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Controls (4 cols on lg, 4 cols on xl) */}
+        <div className="lg:col-span-4 space-y-6">
           {/* Card 1: Upload Section */}
-          <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2 pb-3 border-b border-[#262a38]">
-              <Upload className="h-4 w-4 text-orange-400" />
-              1. Dataset Upload (CSV)
+          <div className="rounded-lg border border-[#292929] bg-[#141414] p-5">
+            <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2 pb-3 border-b border-[#292929]">
+              <Upload className="h-4 w-4 text-[#FF6A00]" />
+              <span>1. Dataset Upload (CSV)</span>
             </h2>
 
             <div className="mt-4">
@@ -365,17 +357,17 @@ export default function HistoricalReplayPage() {
                     handleFileSelect(e.dataTransfer.files[0]);
                   }
                 }}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
                   isDragOver
-                    ? 'border-orange-500 bg-orange-500/10'
-                    : 'border-[#262a38] bg-[#1c1f2b] hover:bg-[#232737]'
+                    ? 'border-[#FF6A00] bg-[rgba(255,106,0,0.08)]'
+                    : 'border-[#292929] bg-[#101010] hover:border-[#383838] hover:bg-[#141414]'
                 }`}
               >
-                <FileSpreadsheet className="h-8 w-8 text-orange-400 mb-2" />
-                <span className="text-xs font-medium text-white">
+                <FileSpreadsheet className="h-8 w-8 text-[#FF6A00] mb-2" />
+                <span className="text-xs font-medium text-[#F5F5F5]">
                   {selectedFile ? selectedFile.name : 'Choose or drag & drop a .csv file'}
                 </span>
-                <span className="text-[11px] text-slate-400 mt-1">
+                <span className="text-[11px] text-[#737373] mt-1 font-mono">
                   {selectedFile
                     ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
                     : 'Network flow summaries (up to 50 MB)'}
@@ -393,8 +385,8 @@ export default function HistoricalReplayPage() {
               </label>
 
               {fileError && (
-                <div className="mt-3 flex items-start gap-2 rounded border border-red-500/40 bg-red-950/20 p-2 text-[11px] text-red-300">
-                  <XCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+                <div className="mt-3 flex items-start gap-2 rounded border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-2.5 text-[11px] text-red-300">
+                  <XCircle className="h-4 w-4 shrink-0 text-[#ef4444] mt-0.5" />
                   <span>{fileError}</span>
                 </div>
               )}
@@ -404,17 +396,17 @@ export default function HistoricalReplayPage() {
                   type="button"
                   onClick={handlePreview}
                   disabled={isPreviewLoading}
-                  className="mt-3 w-full rounded-md bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="mt-3 w-full btn-primary justify-center"
                 >
                   {isPreviewLoading ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      Inspecting CSV Columns...
+                      <span>Inspecting CSV Columns...</span>
                     </>
                   ) : (
                     <>
                       <Eye className="h-3.5 w-3.5" />
-                      Inspect & Preview CSV
+                      <span>Inspect &amp; Preview CSV</span>
                     </>
                   )}
                 </button>
@@ -424,22 +416,22 @@ export default function HistoricalReplayPage() {
 
           {/* Card 2: Column Selection & Mapping */}
           {previewData && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2 pb-3 border-b border-[#262a38]">
-                <FileText className="h-4 w-4 text-orange-400" />
-                2. Column Mapping
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+              <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2 pb-3 border-b border-[#292929]">
+                <FileText className="h-4 w-4 text-[#FF6A00]" />
+                <span>2. Column Mapping</span>
               </h2>
 
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3.5 text-xs">
                 {/* Timestamp Column */}
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">
-                    Timestamp Column <span className="text-red-400">*</span>
+                  <label className="block font-medium text-[#F5F5F5] mb-1">
+                    Timestamp Column <span className="text-[#FF6A00]">*</span>
                   </label>
                   <select
                     value={timestampColumn}
                     onChange={(e) => setTimestampColumn(e.target.value)}
-                    className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2.5 py-1.5 font-mono text-xs text-white"
+                    className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                   >
                     {previewData.columns.map((col) => (
                       <option key={col} value={col}>
@@ -451,13 +443,13 @@ export default function HistoricalReplayPage() {
 
                 {/* Optional Label Column */}
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">
-                    Ground-Truth Label Column <span className="text-slate-400 font-normal">(Optional)</span>
+                  <label className="block font-medium text-[#F5F5F5] mb-1">
+                    Ground-Truth Label Column <span className="text-[#737373] font-normal">(Optional)</span>
                   </label>
                   <select
                     value={labelColumn}
                     onChange={(e) => setLabelColumn(e.target.value)}
-                    className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2.5 py-1.5 font-mono text-xs text-white"
+                    className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                   >
                     <option value="">None / Unlabeled Dataset</option>
                     {previewData.columns.map((col) => (
@@ -471,7 +463,7 @@ export default function HistoricalReplayPage() {
                 {/* Benign Label Value (if label column selected) */}
                 {labelColumn && (
                   <div>
-                    <label className="block font-medium text-slate-300 mb-1">
+                    <label className="block font-medium text-[#F5F5F5] mb-1">
                       Benign / Normal Label Value
                     </label>
                     <input
@@ -479,16 +471,16 @@ export default function HistoricalReplayPage() {
                       value={benignLabelValue}
                       onChange={(e) => setBenignLabelValue(e.target.value)}
                       placeholder="e.g. BENIGN, Normal"
-                      className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2.5 py-1.5 font-mono text-xs text-white"
+                      className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-2 font-mono text-xs text-[#F5F5F5] focus:border-[#FF6A00] focus:outline-none"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">
+                    <p className="text-[10px] text-[#737373] mt-1">
                       Rows with labels other than this value will be marked as attack ground truth.
                     </p>
                   </div>
                 )}
 
                 {previewData.timestamp_diagnostics && (
-                  <div className="rounded bg-[#1c1f2b] p-2 text-[10px] text-slate-300 font-mono">
+                  <div className="rounded bg-[#101010] border border-[#292929] p-2.5 text-[11px] text-[#A3A3A3] font-mono leading-relaxed">
                     {previewData.timestamp_diagnostics}
                   </div>
                 )}
@@ -498,16 +490,16 @@ export default function HistoricalReplayPage() {
 
           {/* Card 3: Calibration & Window Settings */}
           {previewData && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2 pb-3 border-b border-[#262a38]">
-                <Sliders className="h-4 w-4 text-orange-400" />
-                3. Analysis Configuration
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+              <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2 pb-3 border-b border-[#292929]">
+                <Sliders className="h-4 w-4 text-[#FF6A00]" />
+                <span>3. Analysis Configuration</span>
               </h2>
 
               <div className="space-y-4 text-xs">
                 {/* Observation Window Duration */}
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">
+                  <label className="block font-medium text-[#F5F5F5] mb-1.5">
                     Observation Window Duration ($W$)
                   </label>
                   <div className="grid grid-cols-5 gap-1.5">
@@ -516,10 +508,10 @@ export default function HistoricalReplayPage() {
                         key={sec}
                         type="button"
                         onClick={() => setWindowSeconds(sec)}
-                        className={`rounded py-1.5 text-center font-mono font-semibold transition-colors ${
+                        className={`rounded py-1.5 text-center font-mono font-semibold transition-all ${
                           windowSeconds === sec
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                            ? 'bg-[#FF6A00] text-white'
+                            : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                         }`}
                       >
                         {sec}s
@@ -530,17 +522,17 @@ export default function HistoricalReplayPage() {
 
                 {/* Baseline Calibration Mode */}
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">
+                  <label className="block font-medium text-[#F5F5F5] mb-1.5">
                     Baseline Calibration Mode
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                  <div className="grid grid-cols-3 gap-1.5 mb-2.5">
                     <button
                       type="button"
                       onClick={() => setBaselineMode('ratio')}
-                      className={`rounded py-1.5 text-[11px] transition-colors ${
+                      className={`rounded py-1.5 text-xs transition-all ${
                         baselineMode === 'ratio'
-                          ? 'bg-orange-500 text-white font-semibold'
-                          : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                          ? 'bg-[#FF6A00] text-white font-semibold'
+                          : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       First N%
@@ -548,10 +540,10 @@ export default function HistoricalReplayPage() {
                     <button
                       type="button"
                       onClick={() => setBaselineMode('window_count')}
-                      className={`rounded py-1.5 text-[11px] transition-colors ${
+                      className={`rounded py-1.5 text-xs transition-all ${
                         baselineMode === 'window_count'
-                          ? 'bg-orange-500 text-white font-semibold'
-                          : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                          ? 'bg-[#FF6A00] text-white font-semibold'
+                          : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       N Windows
@@ -559,10 +551,10 @@ export default function HistoricalReplayPage() {
                     <button
                       type="button"
                       onClick={() => setBaselineMode('timestamp_range')}
-                      className={`rounded py-1.5 text-[11px] transition-colors ${
+                      className={`rounded py-1.5 text-xs transition-all ${
                         baselineMode === 'timestamp_range'
-                          ? 'bg-orange-500 text-white font-semibold'
-                          : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                          ? 'bg-[#FF6A00] text-white font-semibold'
+                          : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                       }`}
                     >
                       Time Range
@@ -571,9 +563,9 @@ export default function HistoricalReplayPage() {
 
                   {baselineMode === 'ratio' && (
                     <div>
-                      <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                      <div className="flex justify-between text-[11px] text-[#A3A3A3] mb-1">
                         <span>Calibration Ratio:</span>
-                        <span className="font-mono text-orange-400 font-bold">{(baselineRatio * 100).toFixed(0)}%</span>
+                        <span className="font-mono text-[#FF6A00] font-bold">{(baselineRatio * 100).toFixed(0)}%</span>
                       </div>
                       <input
                         type="range"
@@ -582,21 +574,21 @@ export default function HistoricalReplayPage() {
                         step="0.05"
                         value={baselineRatio}
                         onChange={(e) => setBaselineRatio(Number(e.target.value))}
-                        className="w-full accent-orange-500"
+                        className="w-full accent-[#FF6A00]"
                       />
                     </div>
                   )}
 
                   {baselineMode === 'window_count' && (
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Window Count:</label>
+                      <label className="block text-[11px] text-[#A3A3A3] mb-1">Window Count:</label>
                       <input
                         type="number"
                         min="3"
                         max="500"
                         value={baselineWindowCount}
                         onChange={(e) => setBaselineWindowCount(Number(e.target.value))}
-                        className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                        className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-1.5 font-mono text-xs text-[#F5F5F5]"
                       />
                     </div>
                   )}
@@ -604,36 +596,36 @@ export default function HistoricalReplayPage() {
                   {baselineMode === 'timestamp_range' && (
                     <div className="space-y-2">
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-0.5">Start Timestamp:</label>
+                        <label className="block text-[11px] text-[#A3A3A3] mb-1">Start Timestamp:</label>
                         <input
                           type="text"
                           placeholder="e.g. 2026-03-01 10:00:00"
                           value={baselineStartTimestamp}
                           onChange={(e) => setBaselineStartTimestamp(e.target.value)}
-                          className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                          className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-1.5 font-mono text-xs text-[#F5F5F5]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-0.5">End Timestamp:</label>
+                        <label className="block text-[11px] text-[#A3A3A3] mb-1">End Timestamp:</label>
                         <input
                           type="text"
                           placeholder="e.g. 2026-03-01 10:05:00"
                           value={baselineEndTimestamp}
                           onChange={(e) => setBaselineEndTimestamp(e.target.value)}
-                          className="w-full rounded border border-[#262a38] bg-[#0c0d12] px-2 py-1 font-mono text-xs text-white"
+                          className="w-full rounded border border-[#292929] bg-[#101010] px-3 py-1.5 font-mono text-xs text-[#F5F5F5]"
                         />
                       </div>
                     </div>
                   )}
 
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-[#737373] mt-1.5">
                     Known attack windows are automatically excluded from calibration to prevent baseline contamination.
                   </p>
                 </div>
 
                 {/* Significance Level Alpha */}
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">
+                  <label className="block font-medium text-[#F5F5F5] mb-1.5">
                     Significance Level (&alpha;)
                   </label>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -642,10 +634,10 @@ export default function HistoricalReplayPage() {
                         key={val}
                         type="button"
                         onClick={() => setAlpha(val)}
-                        className={`rounded py-1.5 font-mono text-xs transition-colors ${
+                        className={`rounded py-1.5 font-mono text-xs transition-all ${
                           alpha === val
-                            ? 'bg-orange-500 text-white font-semibold'
-                            : 'bg-[#1c1f2b] border border-[#262a38] text-slate-300 hover:bg-[#232737]'
+                            ? 'bg-[rgba(255,106,0,0.15)] border border-[#FF6A00] text-[#FF6A00]'
+                            : 'bg-[#101010] border border-[#292929] text-[#A3A3A3] hover:text-[#F5F5F5]'
                         }`}
                       >
                         {val}
@@ -659,24 +651,24 @@ export default function HistoricalReplayPage() {
                   type="button"
                   onClick={handleRunAnalysis}
                   disabled={isAnalyzing}
-                  className="w-full rounded-md bg-orange-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-orange-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20"
+                  className="w-full btn-primary justify-center py-2.5 mt-2"
                 >
                   {isAnalyzing ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Running Poisson Detection...
+                      <span>Running Poisson Detection...</span>
                     </>
                   ) : (
                     <>
-                      <Play className="h-4 w-4" />
-                      Run Historical Analysis
+                      <Play className="h-4 w-4 fill-current" />
+                      <span>Run Historical Analysis</span>
                     </>
                   )}
                 </button>
 
                 {analysisError && (
-                  <div className="rounded border border-red-500/40 bg-red-950/20 p-2.5 text-[11px] text-red-300 flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+                  <div className="rounded border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-2.5 text-[11px] text-red-300 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-[#ef4444] mt-0.5" />
                     <span>{analysisError}</span>
                   </div>
                 )}
@@ -685,30 +677,30 @@ export default function HistoricalReplayPage() {
           )}
         </div>
 
-        {/* =========================================================================
-            RIGHT COLUMN: Preview Table, Timeline, Replay, Inspector & Evaluation
-           ========================================================================= */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Pre-Analysis Dataset Preview Card (Visible after preview, before or alongside analysis) */}
+        {/* Right Column: Preview Table, Timeline, Replay, Inspector & Evaluation (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Pre-Analysis Dataset Preview Card */}
           {previewData && !analysisResult && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-              <h2 className="text-sm font-semibold text-white flex items-center justify-between pb-3 border-b border-[#262a38]">
-                <span className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4 text-orange-400" />
-                  Dataset Preview: {previewData.file_name}
-                </span>
-                <span className="text-xs text-slate-400 font-mono">
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#292929]">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-[#FF6A00]" />
+                  <h2 className="font-heading text-sm font-semibold text-[#F5F5F5]">
+                    Dataset Preview: {previewData.file_name}
+                  </h2>
+                </div>
+                <span className="text-xs text-[#737373] font-mono">
                   ~{previewData.total_rows.toLocaleString()} records &bull; {previewData.columns.length} columns
                 </span>
-              </h2>
+              </div>
 
-              <p className="text-xs text-slate-300 mt-3">
+              <p className="text-xs text-[#A3A3A3]">
                 Inspect sample records below to verify that the timestamp and label columns are mapped properly.
               </p>
 
-              <div className="mt-4 overflow-x-auto max-h-64 border border-[#262a38] rounded">
+              <div className="overflow-x-auto max-h-64 border border-[#292929] rounded-md">
                 <table className="w-full text-left text-[11px] font-mono">
-                  <thead className="sticky top-0 bg-[#1c1f2b] text-slate-400 border-b border-[#262a38]">
+                  <thead className="sticky top-0 bg-[#101010] text-[#737373] border-b border-[#292929]">
                     <tr>
                       {previewData.columns.slice(0, 8).map((col) => (
                         <th key={col} className="px-3 py-2 whitespace-nowrap">
@@ -717,9 +709,9 @@ export default function HistoricalReplayPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#262a38]/60 text-slate-300">
+                  <tbody className="divide-y divide-[#202020] text-[#A3A3A3]">
                     {previewData.sample_rows.map((row, rIdx) => (
-                      <tr key={rIdx} className="hover:bg-[#1c1f2b]/50">
+                      <tr key={rIdx} className="hover:bg-[#191919]">
                         {previewData.columns.slice(0, 8).map((col) => (
                           <td key={col} className="px-3 py-1.5 whitespace-nowrap">
                             {String(row[col] ?? '')}
@@ -732,7 +724,7 @@ export default function HistoricalReplayPage() {
               </div>
 
               {previewData.columns.length > 8 && (
-                <p className="text-[10px] text-slate-400 mt-1.5">
+                <p className="text-[10px] text-[#737373]">
                   Showing first 8 of {previewData.columns.length} columns.
                 </p>
               )}
@@ -741,26 +733,26 @@ export default function HistoricalReplayPage() {
 
           {/* Results Timeline Visualization */}
           {analysisResult && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5 space-y-4">
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
               {/* Persisted Experiment Status Banner */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-[#0c0d12] border border-[#262a38] p-3 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md bg-[#101010] border border-[#292929] p-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-blue-400" />
-                  <span className="text-slate-400">Persisted Experiment:</span>
-                  <span className="font-mono font-bold text-blue-300">{analysisResult.experiment_id}</span>
+                  <Database className="h-4 w-4 text-[#FF6A00]" />
+                  <span className="text-[#A3A3A3]">Persisted Experiment:</span>
+                  <span className="font-mono font-bold text-[#F5F5F5]">{analysisResult.experiment_id}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Link
                     href={`/experiments?selected=${analysisResult.experiment_id}`}
-                    className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 font-medium"
+                    className="text-xs text-[#FF6A00] hover:text-[#FF7A1A] flex items-center gap-1 font-medium"
                   >
                     <span>View in History</span>
                     <ArrowRight className="h-3 w-3" />
                   </Link>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-[#383838]">|</span>
                   <Link
                     href={`/analysis?experiment_id=${analysisResult.experiment_id}`}
-                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium"
+                    className="text-xs text-[#A3A3A3] hover:text-[#F5F5F5] flex items-center gap-1 font-medium"
                   >
                     <span>Analyze in Stats Lab</span>
                     <ArrowRight className="h-3 w-3" />
@@ -768,33 +760,33 @@ export default function HistoricalReplayPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#262a38]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#292929]">
                 <div>
-                  <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-orange-400" />
-                    Historical Traffic Flow Timeline ($W = {analysisResult.window_seconds}$s)
+                  <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#FF6A00]" />
+                    <span>Historical Traffic Flow Timeline ($W = {analysisResult.window_seconds}$s)</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#737373] mt-0.5">
                     {analysisResult.measurement_unit_description}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono">
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <span className="h-2 w-2 rounded-full bg-orange-500" />
+                  <span className="flex items-center gap-1.5 text-[#A3A3A3]">
+                    <span className="h-2 w-2 rounded-full bg-[#FF6A00]" />
                     Observed Flows ($x$)
                   </span>
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <span className="h-0.5 w-3 bg-emerald-400" />
+                  <span className="flex items-center gap-1.5 text-[#A3A3A3]">
+                    <span className="h-0.5 w-3 bg-[#A3A3A3]" />
                     Baseline &lambda;<sub>w</sub> ({analysisResult.lambda_window})
                   </span>
                   {typeof analysisResult.labeled_burst_count === 'number' && analysisResult.labeled_burst_count > 0 && (
-                    <span className="flex items-center gap-1.5 text-amber-300">
-                      <span className="h-2 w-2 bg-amber-500/40 border border-amber-500" />
+                    <span className="flex items-center gap-1.5 text-[#FF6A00]">
+                      <span className="h-2 w-2 bg-[rgba(255,106,0,0.4)] border border-[#FF6A00]" />
                       Labeled Attack
                     </span>
                   )}
-                  <span className="flex items-center gap-1.5 text-red-400">
-                    <span className="h-2 w-2 rounded-full bg-red-500 border border-red-300" />
+                  <span className="flex items-center gap-1.5 text-[#ef4444]">
+                    <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
                     Alert ($p &lt; \alpha$)
                   </span>
                 </div>
@@ -806,42 +798,43 @@ export default function HistoricalReplayPage() {
                   <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="historicalFlowGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#FF6A00" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#FF6A00" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#262a38" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#292929" vertical={false} />
                     <XAxis
                       dataKey="displayTime"
-                      stroke="#64748b"
+                      stroke="#737373"
                       fontSize={10}
+                      fontFamily="var(--font-mono)"
                       tickLine={false}
                       interval="preserveStartEnd"
                     />
-                    <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#737373" fontSize={10} fontFamily="var(--font-mono)" tickLine={false} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload || !payload.length) return null;
                         const d = payload[0].payload;
                         return (
-                          <div className="rounded border border-[#262a38] bg-[#0c0d12]/95 p-2.5 font-mono text-[11px] shadow-xl">
-                            <p className="text-slate-400">{d.timestamp}</p>
-                            <p className="text-white font-bold mt-1">
-                              Flows: <span className="text-orange-400">{d.count}</span>
+                          <div className="rounded-lg border border-[#383838] bg-[#141414] p-3 font-mono text-xs shadow-2xl space-y-1">
+                            <p className="text-[#A3A3A3]">{d.timestamp}</p>
+                            <p className="text-[#F5F5F5] font-bold">
+                              Flows: <span className="text-[#FF6A00]">{d.count}</span>
                             </p>
-                            <p className="text-slate-300">
-                              Baseline: <span className="text-emerald-400">{d.baseline}</span>
+                            <p className="text-[#A3A3A3]">
+                              Baseline: <span className="text-[#F5F5F5]">{d.baseline}</span>
                             </p>
                             {d.pValue !== undefined && (
-                              <p className="text-slate-300">
-                                Prob $P(X \ge x)$: <span className="text-amber-400">{formatProbability(d.pValue)}</span>
+                              <p className="text-[#A3A3A3]">
+                                Prob $P(X \ge x)$: <span className="text-[#FF6A00]">{formatProbability(d.pValue)}</span>
                               </p>
                             )}
-                            <p className={d.isBurst ? 'text-red-400 font-bold mt-1' : 'text-slate-400'}>
+                            <p className={d.isBurst ? 'text-[#ef4444] font-bold' : 'text-[#737373]'}>
                               {d.isBurst ? 'STATUS: STATISTICAL BURST' : 'STATUS: NORMAL'}
                             </p>
                             {d.groundTruth !== null && (
-                              <p className={d.groundTruth ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
+                              <p className={d.groundTruth ? 'text-[#FF6A00] font-semibold' : 'text-[#737373]'}>
                                 Ground Truth: {d.groundTruth ? 'ATTACK' : 'BENIGN'}
                               </p>
                             )}
@@ -858,10 +851,10 @@ export default function HistoricalReplayPage() {
                             key={`attack-${d.windowIndex}`}
                             x1={d.displayTime}
                             x2={d.displayTime}
-                            stroke="#f59e0b"
+                            stroke="#FF6A00"
                             strokeOpacity={0.3}
-                            fill="#f59e0b"
-                            fillOpacity={0.15}
+                            fill="#FF6A00"
+                            fillOpacity={0.12}
                           />
                         );
                       }
@@ -871,7 +864,7 @@ export default function HistoricalReplayPage() {
                     {/* Baseline Lambda Reference Line */}
                     <ReferenceLine
                       y={analysisResult.lambda_window}
-                      stroke="#34d399"
+                      stroke="#A3A3A3"
                       strokeDasharray="4 4"
                       strokeWidth={1.5}
                     />
@@ -880,7 +873,7 @@ export default function HistoricalReplayPage() {
                     {chartData[currentIndex] && (
                       <ReferenceLine
                         x={chartData[currentIndex].displayTime}
-                        stroke="#60a5fa"
+                        stroke="#FF6A00"
                         strokeWidth={2}
                       />
                     )}
@@ -889,31 +882,31 @@ export default function HistoricalReplayPage() {
                     <Area
                       type="monotone"
                       dataKey="count"
-                      stroke="#f97316"
+                      stroke="#FF6A00"
                       strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#historicalFlowGradient)"
                     />
 
                     {/* Burst Alert Scatter Points */}
-                    <Scatter dataKey="alertMarker" fill="#ef4444" stroke="#fca5a5" strokeWidth={1.5} />
+                    <Scatter dataKey="alertMarker" fill="#ef4444" stroke="#ffffff" strokeWidth={1} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
 
               {/* Replay Controls Toolbar */}
-              <div className="rounded-lg border border-[#262a38] bg-[#1c1f2b] p-3 space-y-3">
+              <div className="rounded-md border border-[#292929] bg-[#101010] p-3.5 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsPlaying(!isPlaying)}
                       className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 font-semibold text-white transition-colors ${
-                        isPlaying ? 'bg-amber-600 hover:bg-amber-500' : 'bg-orange-600 hover:bg-orange-500'
+                        isPlaying ? 'bg-[#FF6A00] hover:bg-[#FF7A1A]' : 'bg-[#FF6A00] hover:bg-[#FF7A1A]'
                       }`}
                     >
-                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                      {isPlaying ? 'Pause Replay' : 'Play Replay'}
+                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+                      <span>{isPlaying ? 'Pause Replay' : 'Play Replay'}</span>
                     </button>
                     <button
                       type="button"
@@ -921,16 +914,16 @@ export default function HistoricalReplayPage() {
                         setIsPlaying(false);
                         setCurrentIndex(0);
                       }}
-                      className="inline-flex items-center gap-1 rounded bg-[#262a38] px-2.5 py-1.5 text-slate-300 hover:bg-[#32374a] transition-colors"
+                      className="btn-secondary py-1.5 px-2.5 text-xs"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      Reset
+                      <span>Reset</span>
                     </button>
                   </div>
 
                   {/* Playback Speed Controls */}
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-slate-400">Speed:</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-[#737373]">Speed:</span>
                     {[1, 2, 5, 10].map((s) => (
                       <button
                         key={s}
@@ -938,8 +931,8 @@ export default function HistoricalReplayPage() {
                         onClick={() => setPlaybackSpeed(s)}
                         className={`rounded px-2 py-0.5 font-mono ${
                           playbackSpeed === s
-                            ? 'bg-orange-500 text-white font-bold'
-                            : 'bg-[#262a38] text-slate-400 hover:text-white'
+                            ? 'bg-[rgba(255,106,0,0.15)] border border-[#FF6A00] text-[#FF6A00] font-bold'
+                            : 'bg-[#191919] border border-[#292929] text-[#737373] hover:text-[#F5F5F5]'
                         }`}
                       >
                         {s}x
@@ -948,9 +941,9 @@ export default function HistoricalReplayPage() {
                   </div>
 
                   {/* Window Counter */}
-                  <div className="font-mono text-xs text-slate-300">
-                    Window <span className="text-orange-400 font-bold">{currentIndex + 1}</span> of{' '}
-                    <span className="text-slate-400">{analysisResult.total_windows}</span>
+                  <div className="font-mono text-xs text-[#A3A3A3]">
+                    Window <span className="text-[#FF6A00] font-bold">{currentIndex + 1}</span> of{' '}
+                    <span className="text-[#737373]">{analysisResult.total_windows}</span>
                   </div>
                 </div>
 
@@ -965,7 +958,7 @@ export default function HistoricalReplayPage() {
                       setIsPlaying(false);
                       setCurrentIndex(Number(e.target.value));
                     }}
-                    className="w-full accent-orange-500 cursor-pointer"
+                    className="w-full accent-[#FF6A00] cursor-pointer"
                   />
                 </div>
               </div>
@@ -973,44 +966,40 @@ export default function HistoricalReplayPage() {
               {/* Event Inspector for Current Replay Window */}
               {activeObs && activeDet && (
                 <div
-                  className={`rounded-lg border p-4 text-xs transition-colors ${
+                  className={`rounded-md border p-4 text-xs transition-colors space-y-3 ${
                     activeDet.is_burst
-                      ? 'border-red-500/50 bg-red-950/20'
-                      : 'border-[#262a38] bg-[#1c1f2b]'
+                      ? 'border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.05)]'
+                      : 'border-[#292929] bg-[#101010]'
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#262a38]/60">
-                    <span className="font-semibold text-white flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-orange-400" />
-                      Window Inspector &bull; Time: <span className="font-mono">{activeObs.timestamp}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#292929]">
+                    <span className="font-semibold text-[#F5F5F5] flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-[#FF6A00]" />
+                      <span>Window Inspector &bull; Time: </span>
+                      <span className="font-mono text-[#A3A3A3]">{activeObs.timestamp}</span>
                     </span>
-                    <span
-                      className={`rounded px-2 py-0.5 font-mono font-bold text-[10px] ${
-                        activeDet.is_burst
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                      }`}
-                    >
-                      {activeDet.is_burst ? 'ALERT: BURST DETECTED' : 'NORMAL VARIATION'}
-                    </span>
+                    <StatusBadge
+                      label={activeDet.is_burst ? 'ALERT: BURST DETECTED' : 'NORMAL VARIATION'}
+                      variant={activeDet.is_burst ? 'error' : 'success'}
+                    />
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 font-mono">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
                     <div>
-                      <span className="text-[10px] text-slate-400">Observed Flows ($x$):</span>
-                      <p className="text-base font-bold text-white">{activeObs.count}</p>
+                      <span className="text-[10px] text-[#737373] block">Observed Flows ($x$):</span>
+                      <p className="text-base font-bold text-[#F5F5F5]">{activeObs.count}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Baseline (&lambda;<sub>w</sub>):</span>
-                      <p className="text-base font-bold text-slate-300">{activeDet.expected_rate}</p>
+                      <span className="text-[10px] text-[#737373] block">Baseline (&lambda;<sub>w</sub>):</span>
+                      <p className="text-base font-bold text-[#A3A3A3]">{activeDet.expected_rate}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Upper-Tail $P(X \ge x)$:</span>
-                      <p className="text-base font-bold text-orange-400">{formatProbability(activeDet.p_value)}</p>
+                      <span className="text-[10px] text-[#737373] block">Upper-Tail $P(X \ge x)$:</span>
+                      <p className="text-base font-bold text-[#FF6A00]">{formatProbability(activeDet.p_value)}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400">Ground Truth:</span>
-                      <p className="text-base font-bold text-amber-400">
+                      <span className="text-[10px] text-[#737373] block">Ground Truth:</span>
+                      <p className="text-base font-bold text-[#F5F5F5]">
                         {activeObs.ground_truth === null
                           ? 'Unlabeled'
                           : activeObs.ground_truth
@@ -1020,8 +1009,8 @@ export default function HistoricalReplayPage() {
                     </div>
                   </div>
 
-                  <p className="mt-3 text-[11px] text-slate-300 font-sans leading-relaxed">
-                    <strong>Statistical Reasoning: </strong>
+                  <p className="text-xs text-[#A3A3A3] font-sans leading-relaxed pt-1">
+                    <strong className="text-[#F5F5F5]">Statistical Reasoning: </strong>
                     {activeDet.interpretation}
                   </p>
                 </div>
@@ -1031,82 +1020,82 @@ export default function HistoricalReplayPage() {
 
           {/* Performance Evaluation Card */}
           {analysisResult && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-white flex items-center justify-between pb-3 border-b border-[#262a38]">
-                <span className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-orange-400" />
-                  Performance Evaluation & Ground Truth Comparison
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#292929]">
+                <h3 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-[#FF6A00]" />
+                  <span>Performance Evaluation &amp; Ground Truth Comparison</span>
+                </h3>
+                <span className="text-xs font-mono text-[#737373]">
+                  {analysisResult.evaluation ? 'Ground Truth Available' : 'Unlabeled Dataset'}
                 </span>
-                <span className="text-xs font-mono text-slate-400">
-                  {analysisResult.evaluation ? 'Ground Truth Active' : 'Unlabeled Dataset'}
-                </span>
-              </h2>
+              </div>
 
               {analysisResult.evaluation ? (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">Precision</span>
-                      <p className="text-lg font-bold text-white font-mono mt-0.5">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] text-[#A3A3A3] uppercase tracking-wider font-medium">Precision</span>
+                      <p className="text-lg font-bold text-[#F5F5F5] font-mono mt-0.5">
                         {(analysisResult.evaluation.precision * 100).toFixed(1)}%
                       </p>
-                      <span className="text-[9px] text-slate-400">TP / (TP + FP)</span>
+                      <span className="text-[10px] text-[#737373] font-mono">TP / (TP + FP)</span>
                     </div>
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">Recall (Sensitivity)</span>
-                      <p className="text-lg font-bold text-white font-mono mt-0.5">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] text-[#A3A3A3] uppercase tracking-wider font-medium">Recall</span>
+                      <p className="text-lg font-bold text-emerald-400 font-mono mt-0.5">
                         {(analysisResult.evaluation.recall * 100).toFixed(1)}%
                       </p>
-                      <span className="text-[9px] text-slate-400">TP / (TP + FN)</span>
+                      <span className="text-[10px] text-[#737373] font-mono">TP / (TP + FN)</span>
                     </div>
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">F1-Score</span>
-                      <p className="text-lg font-bold text-orange-400 font-mono mt-0.5">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] text-[#A3A3A3] uppercase tracking-wider font-medium">F1-Score</span>
+                      <p className="text-lg font-bold text-[#FF6A00] font-mono mt-0.5">
                         {(analysisResult.evaluation.f1_score * 100).toFixed(1)}%
                       </p>
-                      <span className="text-[9px] text-slate-400">Harmonic Mean</span>
+                      <span className="text-[10px] text-[#737373] font-mono">Harmonic Mean</span>
                     </div>
-                    <div className="rounded border border-[#262a38] bg-[#1c1f2b] p-3 text-center">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider">False Positive Rate</span>
-                      <p className="text-lg font-bold text-amber-400 font-mono mt-0.5">
+                    <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-center">
+                      <span className="text-[10px] text-[#A3A3A3] uppercase tracking-wider font-medium">False Positive Rate</span>
+                      <p className="text-lg font-bold text-[#ef4444] font-mono mt-0.5">
                         {(analysisResult.evaluation.false_positive_rate * 100).toFixed(2)}%
                       </p>
-                      <span className="text-[9px] text-slate-400">FP / (FP + TN)</span>
+                      <span className="text-[10px] text-[#737373] font-mono">FP / (FP + TN)</span>
                     </div>
                   </div>
 
                   {/* 2x2 Confusion Matrix */}
-                  <div className="rounded border border-[#262a38] bg-[#0c0d12] p-3">
-                    <span className="text-[11px] font-semibold text-slate-300 block mb-2">
+                  <div className="rounded-md border border-[#292929] bg-[#101010] p-4 space-y-2">
+                    <span className="text-xs font-semibold text-[#A3A3A3] block">
                       Window-Level Confusion Matrix
                     </span>
-                    <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono">
-                      <div className="rounded bg-emerald-950/30 border border-emerald-500/30 p-2">
+                    <div className="grid grid-cols-2 gap-2.5 text-center text-xs font-mono">
+                      <div className="rounded bg-[#141414] border border-[rgba(34,197,94,0.25)] p-2.5">
                         <span className="text-[10px] text-emerald-400 block">True Positives (TP)</span>
-                        <span className="text-base font-bold text-white">{analysisResult.evaluation.true_positives}</span>
+                        <span className="text-base font-bold text-[#F5F5F5]">{analysisResult.evaluation.true_positives}</span>
                       </div>
-                      <div className="rounded bg-red-950/30 border border-red-500/30 p-2">
-                        <span className="text-[10px] text-red-400 block">False Positives (FP)</span>
-                        <span className="text-base font-bold text-white">{analysisResult.evaluation.false_positives}</span>
+                      <div className="rounded bg-[#141414] border border-[rgba(239,68,68,0.25)] p-2.5">
+                        <span className="text-[10px] text-[#ef4444] block">False Positives (FP)</span>
+                        <span className="text-base font-bold text-[#F5F5F5]">{analysisResult.evaluation.false_positives}</span>
                       </div>
-                      <div className="rounded bg-amber-950/30 border border-amber-500/30 p-2">
-                        <span className="text-[10px] text-amber-400 block">False Negatives (FN)</span>
-                        <span className="text-base font-bold text-white">{analysisResult.evaluation.false_negatives}</span>
+                      <div className="rounded bg-[#141414] border border-[rgba(255,106,0,0.25)] p-2.5">
+                        <span className="text-[10px] text-[#FF6A00] block">False Negatives (FN)</span>
+                        <span className="text-base font-bold text-[#F5F5F5]">{analysisResult.evaluation.false_negatives}</span>
                       </div>
-                      <div className="rounded bg-slate-900 border border-slate-700 p-2">
-                        <span className="text-[10px] text-slate-400 block">True Negatives (TN)</span>
-                        <span className="text-base font-bold text-white">{analysisResult.evaluation.true_negatives}</span>
+                      <div className="rounded bg-[#141414] border border-[#292929] p-2.5">
+                        <span className="text-[10px] text-[#737373] block">True Negatives (TN)</span>
+                        <span className="text-base font-bold text-[#F5F5F5]">{analysisResult.evaluation.true_negatives}</span>
                       </div>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="rounded border border-blue-500/30 bg-blue-950/20 p-3 text-xs text-blue-200">
+                <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-xs text-[#A3A3A3]">
                   <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+                    <Info className="h-4 w-4 text-[#A3A3A3] mt-0.5 shrink-0" />
                     <div>
-                      <p className="font-semibold text-blue-300">Ground-Truth Labels Omitted</p>
-                      <p className="text-slate-300 mt-1">
+                      <p className="font-semibold text-[#F5F5F5]">Ground-Truth Labels Omitted</p>
+                      <p className="text-[#737373] mt-1 leading-relaxed">
                         This dataset was analyzed without historical attack labels. Precision, recall, and false-positive
                         rate are omitted because calculating them against unknown traffic would be scientifically invalid.
                         Detected bursts reflect statistical deviations from the calibrated baseline.
@@ -1117,12 +1106,12 @@ export default function HistoricalReplayPage() {
               )}
 
               {/* Scientific Limitation Note */}
-              <div className="rounded border border-[#262a38] bg-[#0c0d12] p-3 text-xs text-slate-300 space-y-1">
-                <span className="font-semibold text-amber-400 flex items-center gap-1.5 text-[11px]">
+              <div className="rounded-md border border-[#292929] bg-[#101010] p-3 text-xs text-[#A3A3A3] space-y-1">
+                <span className="font-semibold text-[#FF6A00] flex items-center gap-1.5 text-xs">
                   <Layers className="h-3.5 w-3.5" />
-                  Statistical Model Notice
+                  <span>Statistical Model Notice</span>
                 </span>
-                <p className="text-[11px] leading-relaxed text-slate-400">
+                <p className="text-xs leading-relaxed text-[#737373]">
                   {analysisResult.model_limitation_note}
                 </p>
               </div>
@@ -1131,24 +1120,24 @@ export default function HistoricalReplayPage() {
 
           {/* Observations Table */}
           {analysisResult && (
-            <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#262a38]">
-                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4 text-orange-400" />
-                  Observation Windows Table
+            <div className="rounded-lg border border-[#292929] bg-[#141414] p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#292929]">
+                <h2 className="font-heading text-sm font-semibold text-[#F5F5F5] flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-[#FF6A00]" />
+                  <span>Observation Windows Table</span>
                 </h2>
                 <div className="flex items-center gap-1.5 text-xs">
-                  <Filter className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="text-slate-400">Filter:</span>
+                  <Filter className="h-3.5 w-3.5 text-[#737373]" />
+                  <span className="text-[#737373]">Filter:</span>
                   {(['all', 'alerts_only', 'attack_only'] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setTableFilter(mode)}
-                      className={`rounded px-2 py-0.5 text-[11px] font-mono capitalize ${
+                      className={`rounded px-2.5 py-1 text-[11px] font-mono capitalize transition-all ${
                         tableFilter === mode
-                          ? 'bg-orange-500 text-white font-bold'
-                          : 'bg-[#1c1f2b] text-slate-400 hover:text-white'
+                          ? 'bg-[#FF6A00] text-white font-bold'
+                          : 'bg-[#101010] border border-[#292929] text-[#737373] hover:text-[#F5F5F5]'
                       }`}
                     >
                       {mode.replace('_', ' ')}
@@ -1157,21 +1146,21 @@ export default function HistoricalReplayPage() {
                 </div>
               </div>
 
-              <div className="mt-4 max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto rounded-md border border-[#292929]">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className="sticky top-0 bg-[#14161f] border-b border-[#262a38] text-slate-400 text-[11px]">
+                  <thead className="sticky top-0 bg-[#101010] border-b border-[#292929] text-[#737373] text-[11px]">
                     <tr>
-                      <th className="py-2 px-3">Window</th>
-                      <th className="py-2 px-3">Time</th>
-                      <th className="py-2 px-3">Flows ($x$)</th>
-                      <th className="py-2 px-3">Baseline (&lambda;<sub>w</sub>)</th>
-                      <th className="py-2 px-3">Prob $P(X \ge x)$</th>
-                      <th className="py-2 px-3">Decision</th>
-                      <th className="py-2 px-3">Ground Truth</th>
-                      <th className="py-2 px-3 text-right">Inspect</th>
+                      <th className="py-2.5 px-3">Window</th>
+                      <th className="py-2.5 px-3">Time</th>
+                      <th className="py-2.5 px-3">Flows ($x$)</th>
+                      <th className="py-2.5 px-3">Baseline (&lambda;<sub>w</sub>)</th>
+                      <th className="py-2.5 px-3">Prob $P(X \ge x)$</th>
+                      <th className="py-2.5 px-3">Decision</th>
+                      <th className="py-2.5 px-3">Ground Truth</th>
+                      <th className="py-2.5 px-3 text-right">Inspect</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#262a38]/60">
+                  <tbody className="divide-y divide-[#202020]">
                     {filteredIndices.map(({ obs, det, idx }) => {
                       const isAlert = det?.is_burst;
                       const isSelected = currentIndex === idx;
@@ -1184,33 +1173,28 @@ export default function HistoricalReplayPage() {
                           }}
                           className={`cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-orange-500/20 font-bold'
+                              ? 'bg-[rgba(255,106,0,0.15)] font-bold'
                               : isAlert
-                              ? 'bg-red-950/20 hover:bg-red-950/30'
-                              : 'hover:bg-[#1c1f2b]'
+                              ? 'bg-[rgba(239,68,68,0.06)] hover:bg-[rgba(239,68,68,0.12)]'
+                              : 'hover:bg-[#191919]'
                           }`}
                         >
-                          <td className="py-2 px-3 text-slate-400">#{idx + 1}</td>
-                          <td className="py-2 px-3 text-slate-300">
+                          <td className="py-2 px-3 text-[#737373]">#{idx + 1}</td>
+                          <td className="py-2 px-3 text-[#A3A3A3]">
                             {obs.timestamp.includes('T') ? obs.timestamp.split('T')[1].slice(0, 8) : obs.timestamp}
                           </td>
-                          <td className="py-2 px-3 text-white font-bold">{obs.count}</td>
-                          <td className="py-2 px-3 text-slate-400">{det?.expected_rate ?? analysisResult.lambda_window}</td>
-                          <td className="py-2 px-3 text-orange-400 font-mono">
+                          <td className="py-2 px-3 text-[#F5F5F5] font-bold">{obs.count}</td>
+                          <td className="py-2 px-3 text-[#737373]">{det?.expected_rate ?? analysisResult.lambda_window}</td>
+                          <td className="py-2 px-3 text-[#FF6A00] font-mono">
                             {det ? formatProbability(det.p_value) : '-'}
                           </td>
                           <td className="py-2 px-3">
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                isAlert
-                                  ? 'bg-red-500/20 text-red-400'
-                                  : 'bg-emerald-500/20 text-emerald-400'
-                              }`}
-                            >
-                              {isAlert ? 'BURST' : 'NORMAL'}
-                            </span>
+                            <StatusBadge
+                              label={isAlert ? 'BURST' : 'NORMAL'}
+                              variant={isAlert ? 'error' : 'success'}
+                            />
                           </td>
-                          <td className="py-2 px-3 text-slate-300">
+                          <td className="py-2 px-3 text-[#A3A3A3]">
                             {obs.ground_truth === null
                               ? '-'
                               : obs.ground_truth
@@ -1218,12 +1202,9 @@ export default function HistoricalReplayPage() {
                               : 'BENIGN'}
                           </td>
                           <td className="py-2 px-3 text-right">
-                            <button
-                              type="button"
-                              className="text-[10px] text-orange-400 hover:text-orange-300"
-                            >
+                            <span className="text-[10px] text-[#FF6A00] hover:text-[#FF7A1A]">
                               Inspect
-                            </button>
+                            </span>
                           </td>
                         </tr>
                       );
@@ -1236,14 +1217,11 @@ export default function HistoricalReplayPage() {
 
           {/* Empty State before file upload */}
           {!previewData && !analysisResult && (
-            <div className="rounded-lg border border-dashed border-[#262a38] bg-[#14161f]/50 p-12 text-center">
-              <History className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-white">No Historical Dataset Loaded</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                Upload a CSV network flow summary (such as CICIDS2017) on the left panel to inspect its columns,
-                configure observation window duration, calibrate a clean baseline, and replay detections.
-              </p>
-            </div>
+            <EmptyState
+              icon={History}
+              title="No Historical Dataset Loaded"
+              description="Upload a CSV network flow summary (such as CICIDS2017) on the left panel to inspect its columns, configure observation window duration, calibrate a clean baseline, and replay detections."
+            />
           )}
         </div>
       </div>
