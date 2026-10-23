@@ -10,12 +10,15 @@ import {
   BaselineEstimateResponse,
   BatchDetectionRequest,
   BatchDetectionResponse,
+  DashboardSummaryResponse,
   DetectionRequest,
   DetectionResponse,
   DispersionRequest,
   DispersionResponse,
   DistributionRequest,
   DistributionResponse,
+  ExperimentDetailResponse,
+  ExperimentListResponse,
   HealthResponse,
   HistoricalAnalysisParams,
   HistoricalAnalysisResponse,
@@ -219,6 +222,88 @@ export const api = {
       method: 'POST',
       body: formData,
     });
+  },
+
+  /**
+   * Fetch live dashboard statistics calculated from persisted experiments.
+   */
+  async getDashboardSummary(): Promise<DashboardSummaryResponse> {
+    return request<DashboardSummaryResponse>('/api/dashboard/summary', { method: 'GET' });
+  },
+
+  /**
+   * List saved experiments with pagination, filtering, and search.
+   */
+  async listExperiments(params?: {
+    page?: number;
+    page_size?: number;
+    type?: string;
+    search?: string;
+  }): Promise<ExperimentListResponse> {
+    const query = new URLSearchParams();
+    if (params?.page) query.append('page', String(params.page));
+    if (params?.page_size) query.append('page_size', String(params.page_size));
+    if (params?.type && params.type !== 'all') query.append('type', params.type);
+    if (params?.search && params.search.trim()) query.append('search', params.search.trim());
+
+    const queryString = query.toString();
+    const endpoint = queryString ? `/api/experiments?${queryString}` : '/api/experiments';
+    return request<ExperimentListResponse>(endpoint, { method: 'GET' });
+  },
+
+  /**
+   * Retrieve full details of an experiment by ID.
+   */
+  async getExperimentDetail(experimentId: string): Promise<ExperimentDetailResponse> {
+    return request<ExperimentDetailResponse>(`/api/experiments/${encodeURIComponent(experimentId)}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Delete a saved experiment by ID.
+   */
+  async deleteExperiment(experimentId: string): Promise<{ status: string; experiment_id: string }> {
+    return request<{ status: string; experiment_id: string }>(
+      `/api/experiments/${encodeURIComponent(experimentId)}`,
+      { method: 'DELETE' }
+    );
+  },
+
+  /**
+   * Get direct download URL for experiment CSV export.
+   */
+  getExperimentExportUrl(experimentId: string): string {
+    return `${API_BASE_URL}/api/experiments/${encodeURIComponent(experimentId)}/export`;
+  },
+
+  /**
+   * Download experiment results as CSV directly from browser.
+   */
+  async downloadExperimentCsv(experimentId: string, fallbackFilename?: string): Promise<void> {
+    const url = `${API_BASE_URL}/api/experiments/${encodeURIComponent(experimentId)}/export`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new ApiClientError(`Failed to download experiment CSV (HTTP ${res.status})`, res.status);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition');
+    let filename = fallbackFilename || `experiment_${experimentId}.csv`;
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+    }
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 };
 

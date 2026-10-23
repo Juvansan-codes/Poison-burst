@@ -76,3 +76,11 @@ Thumbs.db
 # Large data captures (keep schemas and test files)
 *.pcap
 *.pcapng
+
+# SQLite databases & persistent experiment data
+backend/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+

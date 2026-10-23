@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   Activity,
   BarChart3,
+  Database,
   FlaskConical,
   History,
   LayoutDashboard,
@@ -36,6 +37,12 @@ const navItems = [
     href: '/analysis',
     icon: BarChart3,
     owner: 'Shirley S',
+  },
+  {
+    name: 'Experiment History',
+    href: '/experiments',
+    icon: Database,
+    owner: 'Unified Experiments',
   },
 ];
 

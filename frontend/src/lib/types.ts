@@ -181,6 +181,7 @@ export interface HistoricalAnalysisParams {
 }
 
 export interface HistoricalAnalysisResponse {
+  experiment_id: string;
   file_name: string;
   measurement_type: MeasurementType;
   measurement_unit_description: string;
@@ -200,4 +201,51 @@ export interface HistoricalAnalysisResponse {
   summary: string;
   model_limitation_note: string;
 }
+
+export type ExperimentType = 'simulation' | 'historical';
+
+export interface ExperimentSummary {
+  experiment_id: string;
+  experiment_type: ExperimentType;
+  created_at: string;
+  title: string;
+  scenario?: string | null;
+  measurement_type: MeasurementType;
+  window_seconds: number;
+  baseline_lambda: number;
+  baseline_rate_per_second: number;
+  alpha: number;
+  observation_count: number;
+  detected_window_count: number;
+  ground_truth_available: boolean;
+  dataset_name?: string | null;
+  summary?: string | null;
+  evaluation?: EvaluationMetrics | null;
+}
+
+export interface ExperimentDetailResponse extends ExperimentSummary {
+  model_limitation_note?: string | null;
+  configuration: Record<string, unknown>;
+  observations: TrafficObservation[];
+  detections: DetectionResponse[];
+}
+
+export interface ExperimentListResponse {
+  items: ExperimentSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface DashboardSummaryResponse {
+  total_experiments: number;
+  simulation_experiments_count: number;
+  historical_experiments_count: number;
+  available_measurement_types: string[];
+  latest_experiment?: ExperimentSummary | null;
+  latest_detected_count?: number | null;
+  recent_experiments: ExperimentSummary[];
+}
+
 

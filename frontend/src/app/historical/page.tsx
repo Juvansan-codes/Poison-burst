@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   Clock,
+  Database,
   Download,
   Eye,
   FileSpreadsheet,
@@ -739,6 +742,32 @@ export default function HistoricalReplayPage() {
           {/* Results Timeline Visualization */}
           {analysisResult && (
             <div className="rounded-lg border border-[#262a38] bg-[#14161f] p-5 space-y-4">
+              {/* Persisted Experiment Status Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-[#0c0d12] border border-[#262a38] p-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-blue-400" />
+                  <span className="text-slate-400">Persisted Experiment:</span>
+                  <span className="font-mono font-bold text-blue-300">{analysisResult.experiment_id}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={`/experiments?selected=${analysisResult.experiment_id}`}
+                    className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 font-medium"
+                  >
+                    <span>View in History</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                  <span className="text-slate-600">|</span>
+                  <Link
+                    href={`/analysis?experiment_id=${analysisResult.experiment_id}`}
+                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium"
+                  >
+                    <span>Analyze in Stats Lab</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[#262a38]">
                 <div>
                   <h2 className="text-sm font-semibold text-white flex items-center gap-2">

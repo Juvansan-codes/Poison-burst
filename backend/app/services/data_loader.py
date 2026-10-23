@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import math
+import uuid
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
@@ -347,6 +348,7 @@ class HistoricalDataLoader:
         baseline_rate_per_sec = float(lambda_window / window_seconds)
 
         # Run Authoritative Poisson Detection
+        experiment_id = f"hist-{uuid.uuid4().hex[:8]}"
         observations: List[TrafficObservation] = []
         detections: List[DetectionResponse] = []
         detected_burst_count = 0
@@ -383,6 +385,7 @@ class HistoricalDataLoader:
                     source=TrafficSource.HISTORICAL,
                     measurement_type=MeasurementType.FLOW_COUNT,
                     ground_truth=gt,
+                    experiment_id=experiment_id,
                     window_seconds=window_seconds,
                     time_seconds=time_sec,
                     expected_baseline_count=round(lambda_window, 2),
@@ -428,6 +431,7 @@ class HistoricalDataLoader:
         )
 
         return HistoricalAnalysisResponse(
+            experiment_id=experiment_id,
             file_name=filename,
             measurement_type=MeasurementType.FLOW_COUNT,
             measurement_unit_description="Network flows per observation window",

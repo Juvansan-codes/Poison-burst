@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
 
 from app.core.poisson import (
     calculate_dispersion,
@@ -25,6 +25,7 @@ from app.core.schemas import (
     BaselineEstimateResponse,
     BatchDetectionRequest,
     BatchDetectionResponse,
+    DashboardSummaryResponse,
     DetectionRequest,
     DetectionResponse,
     DispersionRequest,
@@ -32,6 +33,9 @@ from app.core.schemas import (
     DistributionPoint,
     DistributionRequest,
     DistributionResponse,
+    ExperimentDetailResponse,
+    ExperimentListResponse,
+    ExperimentSummary,
     HealthResponse,
     HistoricalAnalysisResponse,
     HistoricalPreviewResponse,
@@ -39,6 +43,7 @@ from app.core.schemas import (
     SimulationResponse,
 )
 from app.services.data_loader import HistoricalDataLoader
+from app.services.experiment_repository import get_experiment_repository
 from app.services.traffic_simulator import run_traffic_simulation
 
 router = APIRouter()
@@ -280,10 +285,14 @@ def generate_simulation_experiment(req: SimulationRequest) -> SimulationResponse
     """Run a deterministic synthetic traffic simulation.
 
     Generates time-series observations, runs the authoritative Poisson detector,
-    and evaluates metrics against known injected ground-truth bursts.
+    evaluates metrics against known injected ground-truth bursts, and persists
+    the experiment to the SQLite storage layer.
     """
     try:
-        return run_traffic_simulation(req)
+        res = run_traffic_simulation(req)
+        repo = get_experiment_repository()
+        repo.save_simulation_experiment(req, res)
+        return res
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -308,7 +317,7 @@ async def preview_historical_dataset(
     """Preview uploaded historical network traffic CSV file.
 
     Extracts column headers, sample records, and infers likely timestamp
-    and ground-truth label columns.
+    and ground-truth label columns. Note: previews do NOT create experiment records.
     """
     filename = file.filename or "uploaded.csv"
     if not filename.lower().endswith(".csv"):
@@ -351,7 +360,7 @@ async def analyze_historical_dataset(
     baseline_end_timestamp: Optional[str] = Form(None, description="End timestamp for baseline window range"),
     alpha: float = Form(0.01, description="Significance threshold for upper-tail detection"),
 ) -> HistoricalAnalysisResponse:
-    """Run time-window aggregation, baseline calibration, and Poisson burst detection on historical CSV."""
+    """Run time-window aggregation, baseline calibration, Poisson burst detection, and persist the experiment."""
     filename = file.filename or "uploaded.csv"
     if not filename.lower().endswith(".csv"):
         raise HTTPException(
@@ -361,7 +370,7 @@ async def analyze_historical_dataset(
 
     try:
         content = await file.read()
-        return HistoricalDataLoader.analyze_csv(
+        res = HistoricalDataLoader.analyze_csv(
             content=content,
             filename=filename,
             timestamp_column=timestamp_column,
@@ -375,6 +384,26 @@ async def analyze_historical_dataset(
             baseline_end_timestamp=baseline_end_timestamp,
             alpha=alpha,
         )
+        repo = get_experiment_repository()
+        repo.save_historical_experiment(
+            filename=filename,
+            res=res,
+            config={
+                "timestamp_column": timestamp_column,
+                "label_column": label_column,
+                "benign_label_value": benign_label_value,
+                "window_seconds": window_seconds,
+                "baseline_mode": baseline_mode,
+                "baseline_ratio": baseline_ratio,
+                "baseline_window_count": baseline_window_count,
+                "baseline_start_timestamp": baseline_start_timestamp,
+                "baseline_end_timestamp": baseline_end_timestamp,
+                "alpha": alpha,
+                "total_rows_processed": res.total_rows_processed,
+                "invalid_rows": res.invalid_rows,
+            },
+        )
+        return res
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -403,4 +432,102 @@ def get_historical_formats() -> dict:
             "phase": "Milestone 3 Historical CSV Flow Replay Active.",
         },
     }
+
+
+# =============================================================================
+# Milestone 4: Persistent Experiment Management & Dashboard API
+# =============================================================================
+
+@router.get(
+    "/experiments",
+    response_model=ExperimentListResponse,
+    tags=["Experiment History"],
+    status_code=status.HTTP_200_OK,
+)
+def list_experiments(
+    page: int = Query(1, ge=1, description="Page index (1-based)"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    type: Optional[str] = Query(None, description="Filter by experiment type ('simulation' or 'historical')"),
+    search: Optional[str] = Query(None, description="Search term for title or dataset name"),
+) -> ExperimentListResponse:
+    """Return a paginated list of stored experiment summaries."""
+    repo = get_experiment_repository()
+    return repo.list_experiments(
+        page=page,
+        page_size=page_size,
+        experiment_type=type,
+        search=search,
+    )
+
+
+@router.get(
+    "/experiments/{experiment_id}",
+    response_model=ExperimentDetailResponse,
+    tags=["Experiment History"],
+    status_code=status.HTTP_200_OK,
+)
+def get_experiment_details(experiment_id: str) -> ExperimentDetailResponse:
+    """Return full configuration, observations, detections, and metrics for a saved experiment."""
+    repo = get_experiment_repository()
+    exp = repo.get_experiment(experiment_id)
+    if not exp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found in persistent storage.",
+        )
+    return exp
+
+
+@router.delete(
+    "/experiments/{experiment_id}",
+    tags=["Experiment History"],
+    status_code=status.HTTP_200_OK,
+)
+def delete_experiment(experiment_id: str) -> dict:
+    """Safely delete an experiment record by ID."""
+    repo = get_experiment_repository()
+    deleted = repo.delete_experiment(experiment_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found.",
+        )
+    return {"status": "deleted", "experiment_id": experiment_id}
+
+
+@router.get(
+    "/experiments/{experiment_id}/export",
+    tags=["Experiment History"],
+    status_code=status.HTTP_200_OK,
+)
+def export_experiment_csv(experiment_id: str) -> Response:
+    """Export saved experiment observations and detections as formatted CSV."""
+    repo = get_experiment_repository()
+    export_data = repo.export_experiment_csv(experiment_id)
+    if not export_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment '{experiment_id}' was not found for export.",
+        )
+    csv_content, filename = export_data
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.get(
+    "/dashboard/summary",
+    response_model=DashboardSummaryResponse,
+    tags=["Dashboard"],
+    status_code=status.HTTP_200_OK,
+)
+def get_dashboard_summary() -> DashboardSummaryResponse:
+    """Return real dashboard summary statistics calculated from persistent experiment records."""
+    repo = get_experiment_repository()
+    return repo.get_dashboard_summary()
+
 

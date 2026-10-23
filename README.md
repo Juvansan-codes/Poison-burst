@@ -99,24 +99,31 @@ MicroProject/
 │   ├── requirements.txt          # Python dependencies
 │   ├── .env.example              # Environment variables template
 │   ├── pytest.ini                # Backend pytest configuration
+│   ├── data/                     # Persistent storage (auto-created, git-ignored)
+│   │   └── experiments.db        # SQLite database for completed experiments
 │   └── app/
 │       ├── __init__.py
 │       ├── main.py               # FastAPI application entry point
 │       ├── api/
 │       │   ├── __init__.py
-│       │   └── routes.py         # REST endpoints for Poisson engine & simulation
+│       │   └── routes.py         # REST endpoints for engine, simulation, history, experiments
 │       ├── core/
 │       │   ├── __init__.py
 │       │   ├── poisson.py        # Authoritative, framework-independent Poisson math
 │       │   └── schemas.py        # Pydantic data schemas and contracts
 │       ├── services/
 │       │   ├── __init__.py
+│       │   ├── experiment_repository.py # Persistent SQLite storage layer (WAL mode)
 │       │   ├── traffic_simulator.py  # Deterministic scenario generator
 │       │   ├── evaluation.py     # Confusion matrix & performance evaluation
-│       │   └── data_loader.py    # Historical data loader (Phase 2 preparation)
+│       │   └── data_loader.py    # Historical CSV data loader & flow aggregator
 │       └── tests/
 │           ├── __init__.py
 │           ├── test_poisson.py   # Unit tests for baseline, upper tail, edge cases
+│           ├── test_traffic_simulator.py # Scenario & deterministic generation tests
+│           ├── test_evaluation.py # Performance metric edge-case tests
+│           ├── test_data_loader.py # CSV parser and aggregation tests
+│           ├── test_experiments.py # Persistent storage, dashboard summary & API tests
 │           └── test_api.py       # API integration tests
 │
 └── frontend/                     # Next.js App Router Web Interface
@@ -129,16 +136,18 @@ MicroProject/
         ├── app/
         │   ├── layout.tsx        # Persistent layout with Navbar and Footer
         │   ├── globals.css       # Dark charcoal & orange theme styles
-        │   ├── page.tsx          # Page 1: Dashboard (Juvansan H)
+        │   ├── page.tsx          # Page 1: Unified Dashboard (Juvansan H)
         │   ├── historical/
         │   │   └── page.tsx      # Page 2: Historical Traffic Replay (Abishek Joseph E)
         │   ├── simulation/
         │   │   └── page.tsx      # Page 3: Simulation Lab (Naveen Kumar R V)
-        │   └── analysis/
-        │       └── page.tsx      # Page 4: Statistical Analysis (Shirley S)
+        │   ├── analysis/
+        │   │   └── page.tsx      # Page 4: Statistical Analysis (Shirley S)
+        │   └── experiments/
+        │       └── page.tsx      # Experiment History & Comparison Matrix
         ├── components/
         │   └── layout/
-        │       ├── Navbar.tsx    # Responsive header with live backend status
+        │       ├── Navbar.tsx    # Responsive header with live backend status & nav links
         │       └── Footer.tsx    # Academic footer with team details
         └── lib/
             ├── api.ts            # Centralized typed HTTP API client
@@ -215,20 +224,7 @@ cd backend
 python -m pytest -v
 ```
 
-### Backend Tests (Pytest)
-
-Run from either the root or `backend/` directory:
-
-```powershell
-# From project root:
-python -m pytest -v
-
-# Or from backend directory:
-cd backend
-python -m pytest -v
-```
-
-All 70 unit and integration tests will execute, validating:
+All 84 unit and integration tests will execute, validating:
 - Baseline estimation sample mean calculations.
 - Rejection of empty sequences, negative arrival counts, and non-finite values (NaN / infinity).
 - SciPy upper-tail probability calculations against reference values.
@@ -246,6 +242,12 @@ All 70 unit and integration tests will execute, validating:
 - Baseline calibration with automated exclusion of labeled attack windows.
 - Ground truth flow mapping and evaluation computation.
 - Historical API endpoints (`/api/historical/preview`, `/api/historical/analyze`).
+- Persistent SQLite experiment repository (`experiments.db`) with WAL mode and atomic transactions.
+- Auto-saving completed simulations and historical analyses with exact observation/detection records.
+- Experiment retrieval, pagination, filtering by type, and 404 handling.
+- Dashboard summary aggregation across actual stored experiment records.
+- Result CSV export with observation metadata and clean experiment deletion.
+- Dataset previews correctly verified as non-persistent.
 
 ### Frontend Typecheck, Lint, and Production Build
 
@@ -274,10 +276,15 @@ npm run build
 | `POST` | `/api/poisson/detect-batch` | Evaluate sequence of arrival counts | `{"observations": [...], "expected_rate": 10.0, "alpha": 0.01}` |
 | `POST` | `/api/poisson/dispersion` | Compute sample mean, variance, and VMR ($D$) | `{"observations": [10, 12, 9, ...]}` |
 | `POST` | `/api/poisson/distribution` | Generate PMF and upper-tail curve points | `{"expected_rate": 10.0, "max_k": 35}` |
-| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation | `{"scenario": "sudden_burst", "baseline_rate_per_second": 15.0, ...}` |
-| `POST` | `/api/historical/preview` | Preview uploaded CSV headers, sample rows, and suggestions | Multipart Form (`file: UploadFile`) |
-| `POST` | `/api/historical/analyze` | Aggregate historical CSV into flow windows & detect bursts | Multipart Form (`file`, `timestamp_column`, `label_column`, `window_seconds`, `alpha`, etc.) |
+| `POST` | `/api/simulation/generate` | Run deterministic synthetic simulation & auto-save experiment | `{"scenario": "sudden_burst", "baseline_rate_per_second": 15.0, ...}` |
+| `POST` | `/api/historical/preview` | Preview uploaded CSV headers, sample rows, and suggestions (non-persistent) | Multipart Form (`file: UploadFile`) |
+| `POST` | `/api/historical/analyze` | Aggregate historical CSV into flow windows, detect bursts & auto-save | Multipart Form (`file`, `timestamp_column`, `label_column`, `window_seconds`, etc.) |
 | `GET` | `/api/historical/formats` | List supported historical formats | None |
+| `GET` | `/api/dashboard/summary` | Real dashboard summary aggregated across persistent experiments | None |
+| `GET` | `/api/experiments` | List stored experiments with pagination, type filtering, and search | Query params (`offset`, `limit`, `experiment_type`, `search`) |
+| `GET` | `/api/experiments/{id}` | Retrieve full experiment details, observations, and metrics | Path param (`id`) |
+| `DELETE` | `/api/experiments/{id}` | Safely delete a stored experiment record | Path param (`id`) |
+| `GET` | `/api/experiments/{id}/export` | Export saved experiment observations and metadata as CSV | Path param (`id`) |
 
 ---
 
@@ -287,11 +294,12 @@ npm run build
 2. **Explicit Rate Semantics:** Expected arrival counts per observation window are $\lambda_{window} = \text{baseline\_rate\_per\_second} \times \text{window\_seconds}$. The Poisson detector strictly receives expected counts per window ($\lambda_{window}$).
 3. **Ground Truth Independence:** Ground truth labels indicate physical experimental construction or recorded labels, never detector predictions. For historical datasets, flow labels represent connection intent; they do not automatically guarantee volumetric traffic surges.
 4. **Measurement Unit Separation:**
-   - `packet_count`: Physical packets on the wire (PCAP).
+   - `packet_count`: Physical packets on the wire (PCAP / simulation).
    - `flow_count`: Aggregated connection records (NetFlow, CICIDS2017 summaries).
    - `udp_datagram_count`: Application-layer datagrams received by the hardware listener.
    These units represent fundamentally distinct arrival processes and must never be conflated.
-5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard, simulation lab, and historical replay derive from actual backend responses. When ground truth is unavailable, performance metrics (precision, recall, FPR) are omitted rather than invented.
+5. **No Fabricated Operational Metrics:** All statistics displayed in the dashboard, simulation lab, historical replay, and experiment history derive from actual backend responses. When ground truth is unavailable, performance metrics (precision, recall, FPR) are omitted rather than invented.
+6. **Persistence Integrity:** Preview operations and failed requests are never stored. Only successfully completed simulations and historical analyses create immutable experiment records.
 
 ---
 
@@ -325,10 +333,22 @@ npm run build
 - [x] Unlabeled dataset support with clean omission of fabricated evaluation metrics.
 - [x] Interactive Historical Replay page (`/historical`) with Recharts timeline, play/pause scrubber, speed controls, window inspector, and aggregated CSV export.
 - [x] 70 Pytest backend tests passing (100%).
+
+### Completed: Milestone 4 — Unified Dashboard & Cross-Page Integration
+- [x] Persistent SQLite experiment repository at `backend/data/experiments.db` with WAL mode and atomic transaction management.
+- [x] Auto-saving completed simulations (`POST /api/simulation/generate`) and historical analyses (`POST /api/historical/analyze`) with exact observation and detection records.
+- [x] Dataset preview operations strictly non-persistent; no incomplete or failed analyses stored.
+- [x] Experiment REST API: `GET /api/experiments`, `GET /api/experiments/{id}`, `DELETE /api/experiments/{id}`, `GET /api/experiments/{id}/export`, and `GET /api/dashboard/summary`.
+- [x] Unified Dashboard (`/`) displaying real persisted metrics, empty state handling, latest experiment spotlight, detection timeline from saved observation data, recent experiments table, and quick navigation.
+- [x] Dedicated Experiment History page (`/experiments`) with pagination, filtering by experiment and measurement type, title/dataset search, sorting, full observation inspection, and CSV result download.
+- [x] Side-by-side Experiment Comparison matrix with semantic incompatibility warnings (preventing invalid cross-measurement comparisons).
+- [x] Statistical Analysis page (`/analysis`) integration with saved experiment selector, displaying empirical parameters ($\hat{\lambda}, W, \bar{X}, s^2, D = s^2/\bar{X}$) and evaluation metrics while clearly differentiating interactive hypothetical calculations.
+- [x] Persistent experiment badges and cross-page navigation links added to Simulation Lab (`/simulation`) and Historical Replay (`/historical`).
+- [x] 84 Pytest backend tests passing (100%).
 - [x] Frontend TypeScript typecheck (`tsc`), ESLint (0 errors, 0 warnings), and Next.js production build passing with 0 errors.
 
 ### Upcoming: Subsequent Milestones
-- **Milestone 4 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
-- **Milestone 5 (Comprehensive Reporting & Polish):** Automated experiment result export and final presentation preparation.
+- **Milestone 5 (Arduino Hardware Testbed):** UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
+- **Milestone 6 (Comprehensive Reporting & Viva Preparation):** Final empirical report generation, defense presentation materials, and project documentation polish.
 
 

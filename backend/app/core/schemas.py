@@ -466,6 +466,7 @@ class HistoricalPreviewResponse(BaseModel):
 
 class HistoricalAnalysisResponse(BaseModel):
     """Response containing historical flow aggregation, baseline calibration, and detections."""
+    experiment_id: str = Field(..., description="Unique experiment identifier.")
     file_name: str = Field(..., description="Source CSV filename.")
     measurement_type: MeasurementType = Field(
         default=MeasurementType.FLOW_COUNT,
@@ -496,4 +497,79 @@ class HistoricalAnalysisResponse(BaseModel):
     )
     summary: str = Field(..., description="Summary of experiment and results.")
     model_limitation_note: str = Field(..., description="Scientific note on Poisson model assumptions.")
+
+
+# =====================================================================
+# Milestone 4: Experiment Persistence & Dashboard Schemas
+# =====================================================================
+
+class ExperimentType(str, Enum):
+    """Category of traffic burst detection experiment."""
+    SIMULATION = "simulation"
+    HISTORICAL = "historical"
+
+
+class ExperimentSummary(BaseModel):
+    """Metadata summary of a saved experiment."""
+    experiment_id: str
+    experiment_type: ExperimentType
+    created_at: str
+    title: str
+    scenario: Optional[str] = None
+    measurement_type: MeasurementType
+    window_seconds: float
+    baseline_lambda: float
+    baseline_rate_per_second: float
+    alpha: float
+    observation_count: int
+    detected_window_count: int
+    ground_truth_available: bool
+    dataset_name: Optional[str] = None
+    summary: Optional[str] = None
+    evaluation: Optional[EvaluationMetrics] = None
+
+
+class ExperimentDetailResponse(BaseModel):
+    """Full detail of a saved experiment including observations and detections."""
+    experiment_id: str
+    experiment_type: ExperimentType
+    created_at: str
+    title: str
+    scenario: Optional[str] = None
+    measurement_type: MeasurementType
+    window_seconds: float
+    baseline_lambda: float
+    baseline_rate_per_second: float
+    alpha: float
+    observation_count: int
+    detected_window_count: int
+    ground_truth_available: bool
+    dataset_name: Optional[str] = None
+    summary: Optional[str] = None
+    model_limitation_note: Optional[str] = None
+    evaluation: Optional[EvaluationMetrics] = None
+    configuration: Dict[str, Any] = Field(default_factory=dict)
+    observations: List[TrafficObservation]
+    detections: List[DetectionResponse]
+
+
+class ExperimentListResponse(BaseModel):
+    """Paginated list of saved experiments."""
+    items: List[ExperimentSummary]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class DashboardSummaryResponse(BaseModel):
+    """Aggregated summary of completed experiments for the unified dashboard."""
+    total_experiments: int
+    simulation_experiments_count: int
+    historical_experiments_count: int
+    available_measurement_types: List[str]
+    latest_experiment: Optional[ExperimentSummary] = None
+    latest_detected_count: Optional[int] = None
+    recent_experiments: List[ExperimentSummary] = Field(default_factory=list)
+
 

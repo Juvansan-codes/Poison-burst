@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Database,
   Eye,
   Filter,
   Flame,
@@ -595,8 +597,27 @@ export default function SimulationLabPage() {
                       {simulationResult.scenario}
                     </span>
                   </div>
-                  <div className="text-slate-400 font-mono text-[11px]">
-                    Seed: {randomSeed} | Windows: {simulationResult.total_windows} x {simulationResult.window_seconds}s
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href={`/experiments?selected=${simulationResult.experiment_id}`}
+                      className="text-[11px] text-orange-400 hover:text-orange-300 flex items-center gap-1 font-medium bg-[#1c1f2b] px-2 py-0.5 rounded border border-[#2d3244]"
+                      title="Inspect in Experiment History"
+                    >
+                      <Database className="h-3 w-3" />
+                      <span>Saved in History</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                    <Link
+                      href={`/analysis?experiment_id=${simulationResult.experiment_id}`}
+                      className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium bg-[#1c1f2b] px-2 py-0.5 rounded border border-[#2d3244]"
+                      title="Inspect in Statistical Analysis"
+                    >
+                      <span>Analyze in Stats</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                    <span className="text-slate-400 font-mono text-[11px]">
+                      Seed: {randomSeed} | Windows: {simulationResult.total_windows} x {simulationResult.window_seconds}s
+                    </span>
                   </div>
                 </div>
 

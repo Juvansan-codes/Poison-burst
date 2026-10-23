@@ -424,9 +424,17 @@ For each experiment, save the input/configuration, random seed when applicable, 
    - Evaluation metrics (Precision, Recall, F1, FPR, Confusion Matrix) calculated when ground truth labels are provided; cleanly omitted for unlabeled datasets without fabrication.
    - Replay interface at `/historical` fully connected: timeline visualization, play/pause scrubber, window inspector, and aggregated results CSV export.
    - PCAP raw packet capture processing documented as future work.
-6. **Integrate hardware (Milestone 4 - UPCOMING):** confirm board models, implement UDP messages and the receiver, and test controlled bursts.
-7. **Integrate evaluation and reports:** calculate metrics and export actual results. *(COMPLETED FOR SIMULATION AND HISTORICAL)*
-8. **Run experiments and prepare submission:** preserve results, correct limitations, and prepare the demonstration and report.
+6. **Unified Dashboard & Cross-Page Integration (Milestone 4 - COMPLETED):**
+   - Implemented persistent SQLite experiment repository at `backend/data/experiments.db` with WAL mode and atomic transactions via `backend/app/services/experiment_repository.py`.
+   - Automatic persistence for every completed simulation (`POST /api/simulation/generate`) and historical analysis (`POST /api/historical/analyze`). Dataset preview operations are strictly non-persistent.
+   - Experiment management REST endpoints: `GET /api/experiments`, `GET /api/experiments/{id}`, `DELETE /api/experiments/{id}`, `GET /api/experiments/{id}/export`, and `GET /api/dashboard/summary`.
+   - Unified Dashboard (`frontend/src/app/page.tsx`) displaying real persisted metrics, empty state handling, latest experiment spotlight, detection timeline rendered from saved observation data, recent experiments table, and quick cross-page navigation.
+   - Dedicated Experiment History page (`frontend/src/app/experiments/page.tsx`) with pagination, filtering by experiment type (`simulation`, `historical`), search by title or dataset name, creation date sorting, complete stored parameter/observation inspection, CSV result export, and side-by-side experiment comparison with semantic incompatibility warnings.
+   - Statistical Analysis integration (`frontend/src/app/analysis/page.tsx`) featuring a saved experiment selector to inspect empirical parameters ($\hat{\lambda}, W, \bar{X}, s^2, D = s^2/\bar{X}$) and evaluation metrics while clearly differentiating interactive hypothetical calculations.
+   - Strict measurement semantics preserved across all pages: simulated packet counts and historical flow counts remain segregated and never conflated into an artificial common rate.
+   - Survives backend restarts and page reloads; 84 backend unit/integration tests and complete Next.js production build passing.
+7. **Integrate hardware (Milestone 5 - UPCOMING):** confirm board models, implement UDP datagram listener, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
+8. **Run experiments and prepare submission:** run comparative experimental evaluations across configurations, export final empirical tables and figures, and prepare the project viva and technical demonstration.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.
 
@@ -434,10 +442,10 @@ Integrate early. Do not wait until every page is finished before testing the sha
 
 The following are not finalized and must remain marked as pending until the team confirms them:
 
-1. Exact Arduino board models and available networking hardware.
-2. Whether CSV support alone is sufficient for the first delivery or PCAP processing is required.
-3. Whether the laptop will remotely trigger Arduino burst modes or the devices will use preconfigured modes.
-4. Whether experiments need persistent database storage or file exports are sufficient.
+1. Exact Arduino board models and available networking hardware (Ethernet shields vs. Wi-Fi modules).
+2. Whether CSV support alone is sufficient for the final delivery or PCAP packet capture processing is required.
+3. Whether the laptop will remotely trigger Arduino burst modes or the devices will use preconfigured physical buttons/timers.
+4. Experiment database storage: RESOLVED — lightweight SQLite repository implemented at `backend/data/experiments.db`.
 5. Final visual styling and deployment approach.
 
 ## 14. Success Criteria
