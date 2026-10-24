@@ -85,18 +85,29 @@ $$D = \frac{s^2}{\bar{X}}$$
 - $D < 1.0$: Underdispersed (regular, scheduled, or paced traffic).
 
 ### 4.5 Exact Garwood Confidence Interval for Baseline Mean ($\lambda$)
-For $n$ baseline observation windows with total arrivals $T = \sum_{i=1}^n X_i$, the exact two-sided $(1 - \alpha)$ confidence interval for $\lambda$ is computed via the Chi-Square distribution:
+For $n$ verified baseline calibration windows with total arrivals $T = \sum_{i=1}^n X_i$, the exact two-sided $(1 - \alpha)$ confidence interval for $\lambda$ is computed via the Chi-Square distribution:
 $$\lambda_L = \frac{1}{2n} \chi^2_{2T, \, \alpha/2} \quad (\text{if } T = 0, \, \lambda_L = 0)$$
 $$\lambda_U = \frac{1}{2n} \chi^2_{2(T+1), \, 1 - \alpha/2}$$
-*Note:* This quantifies estimation uncertainty in the true mean arrival count per window under stationary Poisson assumptions, distinct from anomaly detection thresholds.
+
+**Calibration Isolation Semantics:**
+- **Homogeneous Poisson Simulation:** All windows represent the calibration sample; the confidence interval distinguishes the empirical sample estimate $\hat{\lambda}$ from the configured theoretical parameter $\lambda$.
+- **Sudden-Burst Simulation:** The baseline confidence interval is computed **strictly from normal-rate background windows**, completely excluding injected burst windows to prevent parameter inflation.
+- **Rate-Drift & Overdispersed Scenarios:** Marked as **statistically unavailable** (`is_valid = False`) with clear educational notes because continuous rate drift violates stationarity and overdispersed traffic violates equidispersed Poisson variance ($\text{Var}(X) = \mathbb{E}[X]$).
+- **Historical Flow Analysis:** Derived exclusively from clean, non-attack baseline windows; calibration window indices are saved in experiment configuration without requiring raw CSV persistence.
+- **Empirical Sequence Mean Interval:** An overall sequence mean interval (`confidence_interval_empirical`) across all observation windows is exposed separately with explicit caveats, ensuring it is never misrepresented as an uncertainty interval for the calibrated baseline.
 
 ### 4.6 Pearson Chi-Square Goodness-of-Fit with Category Pooling
 Tests whether observed count frequencies conform to a Poisson distribution:
 $$H_0: X \sim \text{Poisson}(\lambda)$$
 $$\chi^2 = \sum_{i=1}^k \frac{(O_i - E_i)^2}{E_i}$$
-**Statistical Rigor Requirements:**
-- **Dynamic Bin Pooling:** Categories are pooled until expected frequencies satisfy $E_i \ge 5.0$, with open upper tails ($k+$).
-- **Degrees of Freedom Validation:** When $\lambda$ is estimated from sample data, $df = k - 1 - 1 = k - 2$. When using the fixed baseline, $df = k - 1$. The test requires $df \ge 1$; if insufficient bins remain after pooling, the test reports as statistically unavailable with an explicit explanation.
+
+**Statistical Rigor & Tail Grouping Invariants:**
+- **Strict Final-Tail Partitioning:** Bounded bins $[k_1, k_2]$ and open-ended tail bins $[k_{start}, \infty)$ are mutually exclusive. Eliminates tail observation double-counting when appending or merging the final category.
+- **Category Pooling Invariants:**
+  $$\sum_{i=1}^k O_i = n \quad \text{and} \quad \left|\sum_{i=1}^k E_i - n\right| < 10^{-3}$$
+  Every observation belongs to exactly one category, and expected frequencies across categories sum to the total sample size within floating-point tolerance.
+- **Dynamic Bin Pooling:** Categories are pooled until expected frequencies satisfy $E_i \ge 5.0$. If the remaining tail cannot support an independent bin ($E_{tail} < 5.0$), it is cleanly merged into the preceding bin without double-counting.
+- **Degrees of Freedom Validation:** When $\lambda$ is estimated from sample data, $df = k - 1 - 1 = k - 2$. When testing against the predetermined baseline, $df = k - 1$. The test requires $df \ge 1$; if insufficient bins remain after pooling, the diagnostic is reported as statistically unavailable.
 - **Academic Distinction:** Failure to reject $H_0$ ($p \ge 0.05$) indicates no strong distributional divergence, but does not prove arrivals are independent or stationary over time.
 
 ### 4.7 Non-Mutating Threshold Sensitivity Analysis
@@ -433,9 +444,26 @@ npm run build
 - [x] Preserved 100% of underlying Poisson mathematics, database persistence, API integration, and experiment data integrity.
 - [x] TypeScript type checking (`tsc --noEmit`), ESLint (0 errors, 0 warnings), Next.js production build (`npm run build`), and Pytest test suite (113/113 passed) fully verified.
 
-### Upcoming: Milestone 7 — Arduino Hardware Testbed
+### Completed: Phase 6C — Statistical Correctness & Workflow Re-Verification
+- [x] Baseline Confidence Interval Isolation:
+  * Homogeneous normal Poisson distinguishes sample estimate $\hat{\lambda}$ from configured baseline parameter $\lambda$.
+  * Sudden-burst simulation baseline CI computed strictly from normal-rate windows, excluding injected burst intervals.
+  * Rate-drift and overdispersed scenarios return statistically unavailable baseline CI (`is_valid = False`) with educational explanations detailing violations of constant $\lambda$ and Poisson equidispersed variance.
+  * Historical analysis computes baseline CI strictly from verified, clean baseline calibration windows, saving `calibration_window_indices` without storing raw CSVs.
+  * Exposed secondary empirical sequence mean interval (`confidence_interval_empirical`) separately with explicit caveats, avoiding conflation with the calibrated baseline.
+- [x] Chi-Square Goodness-of-Fit Tail Accounting & Grouping Invariants:
+  * Eliminated tail observation double-counting by strictly partitioning bounded categories $[k_1, k_2]$ and open tail category $[k_{start}, \infty)$.
+  * Enforced mathematical invariants: $\sum O_i = n$ and $|\sum E_i - n| < 10^{-3}$ across all valid evaluations.
+  * Handled open-ended tail category append ($E_{tail} \ge 5.0$) and tail merge into preceding bin without double-counting.
+- [x] Hardened API error handling across simulation, CSV upload, statistics, and PDF export endpoints to return clean, safe error messages while logging detailed diagnostics with `logger.error(..., exc_info=True)`.
+- [x] Added dedicated regression tests (`backend/app/tests/test_statistical_regression.py`), expanding backend test suite to 123 passing tests (100% pass rate).
+- [x] Re-verified all statistical and data-persistence workflows (Workflows A through J) against live server.
+- [x] Frontend TypeScript (`tsc --noEmit`), ESLint (0 errors, 0 warnings), and Next.js production build verified.
+
+### Upcoming: Milestone 7 — Arduino Hardware Testbed (Future Work)
 - UDP listener service collecting live datagrams from 4 microcontrollers on a local network.
 - Live arrival counting and burst detection over a private LAN.
 - Micro-project final submission and viva presentation materials.
+*(Hardware integration has not been implemented yet).*
 
 

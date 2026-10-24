@@ -87,6 +87,10 @@ class TrafficObservation(BaseModel):
         ge=0.0,
         description="Expected baseline arrivals in this window (lambda_window).",
     )
+    is_calibration: Optional[bool] = Field(
+        default=None,
+        description="True if this observation window was part of the normal baseline calibration sample.",
+    )
 
 
 # =====================================================================
@@ -482,6 +486,10 @@ class HistoricalAnalysisResponse(BaseModel):
     invalid_rows: int = Field(..., description="Number of discarded rows due to unparseable timestamps.")
     total_windows: int = Field(..., description="Total number of contiguous observation windows.")
     baseline_window_count: int = Field(..., description="Number of baseline calibration windows used.")
+    calibration_window_indices: Optional[List[int]] = Field(
+        default=None,
+        description="Indices of observation windows used for baseline calibration.",
+    )
     lambda_window: float = Field(..., description="Estimated baseline mean count per window (lambda_hat).")
     baseline_rate_per_second: float = Field(..., description="Baseline flow arrival rate per second (lambda_hat / W).")
     calibration_method: str = Field(..., description="Description of the calibration period and exclusion rules.")
@@ -636,6 +644,10 @@ class ExperimentStatisticsResponse(BaseModel):
     original_alpha: float
     original_detected_count: int
     confidence_interval: ConfidenceIntervalSchema
+    confidence_interval_empirical: Optional[ConfidenceIntervalSchema] = Field(
+        default=None,
+        description="Optional empirical confidence interval computed across all observations.",
+    )
     goodness_of_fit_baseline: GoodnessOfFitSchema
     goodness_of_fit_empirical: GoodnessOfFitSchema
     distribution_fit: List[DistributionFitPointSchema]

@@ -18,6 +18,7 @@ export interface TrafficObservation {
   experiment_id?: string | null;
   window_seconds?: number;
   expected_baseline_count?: number;
+  is_calibration?: boolean;
 }
 
 export interface HealthResponse {
@@ -190,6 +191,7 @@ export interface HistoricalAnalysisResponse {
   invalid_rows: number;
   total_windows: number;
   baseline_window_count: number;
+  calibration_window_indices?: number[];
   lambda_window: number;
   baseline_rate_per_second: number;
   calibration_method: string;
@@ -311,6 +313,7 @@ export interface ExperimentStatisticsResponse {
   original_alpha: number;
   original_detected_count: number;
   confidence_interval: ConfidenceIntervalSchema;
+  confidence_interval_empirical?: ConfidenceIntervalSchema | null;
   goodness_of_fit_baseline: GoodnessOfFitSchema;
   goodness_of_fit_empirical: GoodnessOfFitSchema;
   distribution_fit: DistributionFitPointSchema[];

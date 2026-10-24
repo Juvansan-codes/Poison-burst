@@ -585,51 +585,61 @@ def calculate_poisson_goodness_of_fit(
 
     bins: List[Dict[str, Any]] = []
     current_k_start = 0
-    current_o = 0
-    current_e = 0.0
+    accumulated_p = 0.0
+    accumulated_o = 0
 
-    eval_max_k = max(max_obs + 5, int(lambda_val + 4.0 * math.sqrt(lambda_val)) + 5)
+    eval_max_k = max(max_obs + 10, int(lambda_val + 6.0 * math.sqrt(lambda_val)) + 15)
+    sealed_with_tail = False
 
     for k in range(eval_max_k + 1):
         pk = float(poisson.pmf(k, lambda_val))
-        ek = n * pk
-        ok = counts_map.get(k, 0)
-        current_o += ok
-        current_e += ek
+        accumulated_p += pk
+        accumulated_o += counts_map.get(k, 0)
+        expected = n * accumulated_p
 
-        if current_e >= min_expected_frequency:
-            bins.append({
-                "bin_label": f"{current_k_start}" if current_k_start == k else f"{current_k_start}-{k}",
-                "k_min": current_k_start,
-                "k_max": k,
-                "observed": current_o,
-                "expected": current_e,
-            })
-            current_k_start = k + 1
-            current_o = 0
-            current_e = 0.0
+        if expected >= min_expected_frequency:
+            tail_p = float(poisson.sf(k, lambda_val))
+            tail_expected = n * tail_p
 
-    tail_prob = float(poisson.sf(current_k_start - 1, lambda_val)) if current_k_start > 0 else 1.0
-    tail_expected = n * tail_prob
-    tail_observed = sum(c for val, c in counts_map.items() if val >= current_k_start)
+            if tail_expected >= min_expected_frequency:
+                # The remaining distribution can support at least one more bin.
+                # Seal current bounded bin [current_k_start, k].
+                bins.append({
+                    "bin_label": f"{current_k_start}" if current_k_start == k else f"{current_k_start}-{k}",
+                    "k_min": current_k_start,
+                    "k_max": k,
+                    "observed": accumulated_o,
+                    "expected": expected,
+                })
+                current_k_start = k + 1
+                accumulated_p = 0.0
+                accumulated_o = 0
+            else:
+                # The remaining tail cannot support another bin on its own (tail_expected < min_expected_frequency).
+                # Therefore, seal this final bin as an open-ended tail category: [current_k_start, infinity).
+                final_p = float(poisson.sf(current_k_start - 1, lambda_val)) if current_k_start > 0 else 1.0
+                final_expected = n * final_p
+                final_observed = sum(c for val, c in counts_map.items() if val >= current_k_start)
+                bins.append({
+                    "bin_label": f">={current_k_start}",
+                    "k_min": current_k_start,
+                    "k_max": None,
+                    "observed": final_observed,
+                    "expected": final_expected,
+                })
+                sealed_with_tail = True
+                break
 
-    if bins:
-        if (current_e + tail_expected < min_expected_frequency) or len(bins) == 0:
-            last_bin = bins[-1]
-            last_bin["bin_label"] = f">={last_bin['k_min']}"
-            last_bin["k_max"] = None
-            last_bin["observed"] += current_o + tail_observed
-            p_from_min = float(poisson.sf(last_bin["k_min"] - 1, lambda_val)) if last_bin["k_min"] > 0 else 1.0
-            last_bin["expected"] = n * p_from_min
-        else:
-            bins.append({
-                "bin_label": f">={current_k_start}",
-                "k_min": current_k_start,
-                "k_max": None,
-                "observed": current_o + tail_observed,
-                "expected": tail_expected + current_e,
-            })
-    else:
+    # If the loop finished without sealing an open tail (e.g. extreme numerical tail):
+    if not sealed_with_tail and bins:
+        last_bin = bins[-1]
+        last_bin["k_max"] = None
+        last_bin["bin_label"] = f">={last_bin['k_min']}"
+        p_tail = float(poisson.sf(last_bin["k_min"] - 1, lambda_val)) if last_bin["k_min"] > 0 else 1.0
+        last_bin["expected"] = n * p_tail
+        last_bin["observed"] = sum(c for val, c in counts_map.items() if val >= last_bin["k_min"])
+
+    if not bins:
         return GoodnessOfFitResult(
             test_name="Pearson Chi-Square Goodness-of-Fit",
             is_valid=False,
@@ -661,6 +671,12 @@ def calculate_poisson_goodness_of_fit(
             bin_details=bins,
             explanation="Insufficient degrees of freedom after pooling bins.",
         )
+
+    # Invariants: Every observation belongs to exactly one category, and expected totals match sample size
+    total_obs = sum(b["observed"] for b in bins)
+    total_exp = sum(b["expected"] for b in bins)
+    assert total_obs == n, f"Category pooling error: observed count sum {total_obs} != total sample size {n}"
+    assert abs(total_exp - n) < 1e-4, f"Category pooling error: expected frequency sum {total_exp} != total sample size {n}"
 
     chi2_stat = 0.0
     for b in bins:

@@ -458,8 +458,23 @@ For each experiment, save the input/configuration, random seed when applicable, 
    - Overhauled all 5 application routes (`/`, `/simulation`, `/historical`, `/analysis`, `/experiments`), utilizing full viewport width up to 1600px, responsive 2-column/1-column reflows, and zero horizontal page overflow.
    - Preserved all mathematical formulas, backend endpoints, database persistence schemas, and experiment result integrity without introducing fabricated data.
    - Verified via automated tools: `tsc --noEmit` (0 errors), `npm run lint` (0 errors, 0 warnings), `npm run build` (production Turbopack build passed), `pytest` (113/113 passed), and headless browser subagent visual verification across Desktop (1440x900), Tablet (768x1024), and Mobile (375x812) resolutions.
-10. **Physical Hardware Testbed (Milestone 7 - FUTURE WORK):** Confirm Arduino microcontroller board models, implement UDP datagram listener service on the monitoring laptop, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
-11. **Final Micro-Project Submission & Viva Presentation:** Run comprehensive comparative experiments, export empirical figures and tables, and prepare project demonstration and viva defense.
+10. **Targeted Statistical Correctness & Workflow Re-Verification (COMPLETED):**
+    - Corrected Baseline Confidence Interval isolation across all modalities:
+      * **Homogeneous Normal Poisson:** Explicitly differentiates between the configured baseline parameter $\lambda$ and the empirical calibration sample estimate $\hat{\lambda}$.
+      * **Sudden-Burst Simulation:** Computes the baseline confidence interval strictly from verified normal-rate observation windows ($W \notin [t_{burst}, t_{burst} + d_{burst}]$), completely eliminating contamination from injected burst windows.
+      * **Rate-Drift & Overdispersed Scenarios:** Prevents misleading i.i.d. Poisson assumptions on non-stationary or clustered sequences; marks baseline CI as unavailable (`is_valid = False`) with educational explanations detailing violations of stationarity and equidispersed variance.
+      * **Historical Flow Analysis:** Derives baseline CI exclusively from clean, non-attack baseline calibration windows, preserving `calibration_window_indices` in stored metadata without storing raw CSV files.
+      * **Separate Empirical Sequence Mean Interval:** Exposes overall sequence mean CI (`confidence_interval_empirical`) separately with explicit caveats, preventing conflation with the calibrated baseline.
+    - Corrected Chi-Square Goodness-of-Fit Tail Accounting:
+      * Completely eliminated tail observation double-counting by strictly partitioning bounded categories $[k_1, k_2]$ and open-ended tail categories $[k_{start}, \infty)$.
+      * Enforced mathematical invariants: $\sum \text{observed} = n$, $|\sum \text{expected} - n| < 10^{-3}$, and every observation count maps to exactly one category.
+      * Added exact handling for appended open tail categories ($E_{tail} \ge 5.0$) and merged leftover tail categories into preceding bins without double-counting.
+    - API Error Handling Hardening:
+      * Sanitized all generic exception handling across simulation, historical upload, statistics, and PDF export endpoints to return clean, safe error messages without leaking server stack traces, paths, or secrets.
+      * Detailed runtime diagnostics preserved in server-side logs via `logger.error(..., exc_info=True)`.
+    - Added dedicated regression test suite (`backend/app/tests/test_statistical_regression.py`) with 10 deterministic tests, bringing backend test suite to 123 passing tests (100% pass rate).
+11. **Physical Hardware Testbed (Milestone 7 - FUTURE WORK):** Confirm Arduino microcontroller board models, implement UDP datagram listener service on the monitoring laptop, and test live arrival monitoring from 4 Arduino microcontrollers over a local private network. (Hardware integration has not been implemented yet).
+12. **Final Micro-Project Submission & Viva Presentation:** Run comprehensive comparative experiments, export empirical figures and tables, and prepare project demonstration and viva defense.
 
 Integrate early. Do not wait until every page is finished before testing the shared data contracts or detector.
 

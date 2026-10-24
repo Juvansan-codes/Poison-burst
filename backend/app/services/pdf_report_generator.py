@@ -515,21 +515,37 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
 
     # Baseline Uncertainty Callout
     ci = stats.confidence_interval
-    ci_box_data = [
-        [
-            Paragraph("<b>Exact 95% Poisson Baseline Confidence Interval:</b>", table_cell),
-            Paragraph(
-                f"λ ∈ [<b>{ci.lower_bound:.4f}</b>, <b>{ci.upper_bound:.4f}</b>] "
-                f"(Point Estimate: {ci.point_estimate:.4f}, Method: {ci.method})<br/>"
-                f"<font size='7.5' color='#475569'>{ci.interpretation}</font>",
-                table_cell,
-            ),
-        ]
-    ]
+    if ci.is_valid:
+        ci_title = "<b>Exact 95% Poisson Baseline Confidence Interval:</b>"
+        ci_content = (
+            f"λ ∈ [<b>{ci.lower_bound:.4f}</b>, <b>{ci.upper_bound:.4f}</b>] "
+            f"(Point Estimate: {ci.point_estimate:.4f}, Method: {ci.method})<br/>"
+            f"<font size='7.5' color='#475569'>{ci.interpretation}</font>"
+        )
+        ci_bg = colors.HexColor("#ecfdf5")
+        ci_border = colors.HexColor("#10b981")
+    else:
+        ci_title = "<b>Baseline Confidence Interval (UNAVAILABLE):</b>"
+        ci_content = (
+            f"<b>Notice:</b> Baseline parameter confidence interval cannot be justified for this experiment.<br/>"
+            f"<font size='7.5' color='#475569'>{ci.explanation or ci.interpretation}</font>"
+        )
+        ci_bg = colors.HexColor("#fef3c7")
+        ci_border = colors.HexColor("#f59e0b")
+
+    if stats.confidence_interval_empirical and stats.confidence_interval_empirical.is_valid:
+        emp_ci = stats.confidence_interval_empirical
+        ci_content += (
+            f"<br/><font size='7' color='#334155'><b>Empirical Sequence Interval (All Windows):</b> "
+            f"[{emp_ci.lower_bound:.4f}, {emp_ci.upper_bound:.4f}] (mean = {emp_ci.point_estimate:.4f}, n = {emp_ci.sample_size}). "
+            f"Caution: Reflects aggregate sample arrival rate, not the isolated baseline.</font>"
+        )
+
+    ci_box_data = [[Paragraph(ci_title, table_cell), Paragraph(ci_content, table_cell)]]
     ci_box = Table(ci_box_data, colWidths=[170, 334])
     ci_box.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ecfdf5")),
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#10b981")),
+        ("BACKGROUND", (0, 0), (-1, -1), ci_bg),
+        ("BOX", (0, 0), (-1, -1), 1, ci_border),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))

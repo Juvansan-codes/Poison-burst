@@ -389,6 +389,7 @@ class HistoricalDataLoader:
                     window_seconds=window_seconds,
                     time_seconds=time_sec,
                     expected_baseline_count=round(lambda_window, 2),
+                    is_calibration=(idx in clean_baseline_indices),
                 )
             )
 
@@ -440,6 +441,7 @@ class HistoricalDataLoader:
             invalid_rows=invalid_rows,
             total_windows=total_windows,
             baseline_window_count=len(clean_baseline_indices),
+            calibration_window_indices=clean_baseline_indices,
             lambda_window=round(lambda_window, 4),
             baseline_rate_per_second=round(baseline_rate_per_sec, 4),
             calibration_method=calib_method_desc,

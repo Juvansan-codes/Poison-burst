@@ -9,7 +9,7 @@ for saved experiment observations.
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 from app.core.poisson import (
     calculate_dispersion,
@@ -24,6 +24,7 @@ from app.core.schemas import (
     EvaluationMetrics,
     ExperimentDetailResponse,
     ExperimentStatisticsResponse,
+    ExperimentType,
     GoodnessOfFitSchema,
     ThresholdAnalysisResponse,
     ThresholdSensitivityPoint,
@@ -31,6 +32,120 @@ from app.core.schemas import (
     TrafficSource,
 )
 from app.services.evaluation import evaluate_detection_performance
+
+
+def extract_calibration_observations(
+    exp: ExperimentDetailResponse,
+) -> Tuple[Optional[List[int]], Optional[str], Optional[str]]:
+    """Identify and extract the exact calibration observation counts used to establish the baseline.
+
+    Returns:
+        (calibration_counts, calibration_description, failure_explanation)
+    """
+    # 1. Historical Analysis
+    if exp.experiment_type == ExperimentType.HISTORICAL:
+        # Check if observations explicitly mark is_calibration
+        calib_obs = [obs.count for obs in exp.observations if getattr(obs, "is_calibration", None) is True]
+        if calib_obs:
+            return (
+                calib_obs,
+                f"Calibrated from {len(calib_obs)} clean baseline observation windows (excluding abnormal/attack windows).",
+                None,
+            )
+
+        # Check configuration for calibration_window_indices
+        config = exp.configuration or {}
+        indices = config.get("calibration_window_indices")
+        if indices and isinstance(indices, list):
+            valid_indices = [int(i) for i in indices if 0 <= int(i) < len(exp.observations)]
+            if valid_indices:
+                counts = [exp.observations[i].count for i in valid_indices]
+                return (
+                    counts,
+                    f"Calibrated from {len(counts)} baseline windows recorded in experiment configuration.",
+                    None,
+                )
+
+        # Backward compatibility for existing historical records without explicit flags
+        total_w = len(exp.observations)
+        if total_w > 0:
+            b_count = config.get("baseline_window_count")
+            if b_count and int(b_count) > 0:
+                candidates = list(range(min(total_w, int(b_count))))
+            else:
+                ratio = float(config.get("baseline_ratio", 0.3))
+                num_base = max(1, int(round(total_w * ratio)))
+                candidates = list(range(min(total_w, num_base)))
+
+            # Exclude known ground-truth burst windows
+            clean_candidates = [
+                i for i in candidates if not exp.observations[i].ground_truth
+            ]
+            if clean_candidates:
+                reconstructed_counts = [exp.observations[i].count for i in clean_candidates]
+                reconstructed_mean = sum(reconstructed_counts) / len(clean_candidates)
+                if abs(reconstructed_mean - exp.baseline_lambda) < 1e-3:
+                    return (
+                        reconstructed_counts,
+                        f"Reconstructed from {len(clean_candidates)} verified clean baseline windows.",
+                        None,
+                    )
+
+        return (
+            None,
+            None,
+            "Baseline calibration observations could not be reconstructed reliably from stored historical metadata.",
+        )
+
+    # 2. Synthetic Simulation
+    if exp.experiment_type == ExperimentType.SIMULATION:
+        scenario = (exp.scenario or "").lower()
+
+        if scenario == "poisson_normal":
+            # Homogeneous Poisson process: all observations are representative of baseline lambda
+            counts = [obs.count for obs in exp.observations]
+            if counts:
+                return (
+                    counts,
+                    f"Homogeneous Poisson process: all {len(counts)} observation windows represent the calibration sample.",
+                    None,
+                )
+            return None, None, "Simulation contains zero observations."
+
+        if scenario == "sudden_burst":
+            # Normal background windows exclude the injected burst interval
+            normal_counts = [
+                obs.count
+                for obs in exp.observations
+                if (getattr(obs, "is_calibration", None) is True or (getattr(obs, "is_calibration", None) is None and obs.ground_truth is False))
+            ]
+            if normal_counts:
+                burst_count = len(exp.observations) - len(normal_counts)
+                return (
+                    normal_counts,
+                    f"Computed exclusively from {len(normal_counts)} normal background observation windows (excluding {burst_count} injected burst windows).",
+                    None,
+                )
+            return None, None, "No normal observation windows found outside the injected burst interval."
+
+        if scenario == "rate_drift":
+            return (
+                None,
+                None,
+                "Baseline confidence interval is statistically unavailable for rate-drift simulations because the arrival rate changes continuously over time, violating the stationary Poisson assumption of a constant mean parameter lambda.",
+            )
+
+        if scenario == "overdispersed":
+            return (
+                None,
+                None,
+                "Baseline confidence interval is statistically unavailable for overdispersed traffic because arrivals violate the Poisson model (variance significantly exceeds the mean). Standard Poisson confidence intervals assume equidispersed arrivals and understate estimation uncertainty.",
+            )
+
+        return None, None, f"Baseline confidence interval is unavailable for simulation scenario '{scenario}'."
+
+    # 3. Hardware or other future modes
+    return None, None, "Baseline calibration observations cannot be established reliably."
 
 
 def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentStatisticsResponse:
@@ -52,23 +167,85 @@ def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentSt
         vmr = 0.0
         disp_type = "insufficient_data"
 
-    # 2. Baseline Confidence Interval (Garwood exact method)
-    ci_res = calculate_poisson_confidence_interval(
-        observations=obs_counts if n > 0 else [],
-        confidence_level=0.95,
-    )
-    ci_schema = ConfidenceIntervalSchema(
-        confidence_level=ci_res.confidence_level,
-        sample_size=ci_res.sample_size,
-        total_arrivals=ci_res.total_arrivals,
-        point_estimate=ci_res.point_estimate,
-        lower_bound=ci_res.lower_bound,
-        upper_bound=ci_res.upper_bound,
-        method=ci_res.method,
-        interpretation=ci_res.interpretation,
-        is_valid=ci_res.is_valid,
-        explanation=ci_res.explanation,
-    )
+    # 2. Baseline Confidence Interval (Garwood exact method on verified calibration sample)
+    calib_counts, calib_desc, calib_fail_reason = extract_calibration_observations(exp)
+
+    if calib_counts is not None and len(calib_counts) > 0:
+        ci_res = calculate_poisson_confidence_interval(
+            observations=calib_counts,
+            confidence_level=0.95,
+        )
+        if exp.experiment_type == ExperimentType.SIMULATION and (exp.scenario or "").lower() == "poisson_normal":
+            interp = (
+                f"With 95% confidence, the true mean arrival count per window under this homogeneous Poisson process "
+                f"lies within [{ci_res.lower_bound:.4f}, {ci_res.upper_bound:.4f}] "
+                f"(sample estimate: {ci_res.point_estimate:.4f}, configured parameter: {exp.baseline_lambda:.4f}, "
+                f"total arrivals: {ci_res.total_arrivals} across {ci_res.sample_size} windows). {calib_desc}"
+            )
+        elif exp.experiment_type == ExperimentType.SIMULATION and (exp.scenario or "").lower() == "sudden_burst":
+            interp = (
+                f"With 95% confidence, the true baseline arrival rate parameter lies within "
+                f"[{ci_res.lower_bound:.4f}, {ci_res.upper_bound:.4f}] counts/window "
+                f"(point estimate: {ci_res.point_estimate:.4f}, configured baseline: {exp.baseline_lambda:.4f}). {calib_desc}"
+            )
+        else:
+            interp = (
+                f"With 95% confidence, the true baseline arrival rate parameter lambda lies within "
+                f"[{ci_res.lower_bound:.4f}, {ci_res.upper_bound:.4f}] counts/window "
+                f"(point estimate: {ci_res.point_estimate:.4f}, calibrated baseline: {exp.baseline_lambda:.4f}). {calib_desc}"
+            )
+
+        ci_schema = ConfidenceIntervalSchema(
+            confidence_level=ci_res.confidence_level,
+            sample_size=ci_res.sample_size,
+            total_arrivals=ci_res.total_arrivals,
+            point_estimate=ci_res.point_estimate,
+            lower_bound=ci_res.lower_bound,
+            upper_bound=ci_res.upper_bound,
+            method="Garwood Exact Poisson (Chi-Square)",
+            interpretation=interp,
+            is_valid=True,
+            explanation=None,
+        )
+    else:
+        ci_schema = ConfidenceIntervalSchema(
+            confidence_level=0.95,
+            sample_size=0,
+            total_arrivals=0,
+            point_estimate=0.0,
+            lower_bound=0.0,
+            upper_bound=0.0,
+            method="Garwood Exact Poisson (Chi-Square)",
+            interpretation=f"Baseline confidence interval unavailable: {calib_fail_reason}",
+            is_valid=False,
+            explanation=calib_fail_reason,
+        )
+
+    # 2b. Empirical Sample Mean Interval (across all observation windows)
+    if n > 0:
+        emp_ci_res = calculate_poisson_confidence_interval(
+            observations=obs_counts,
+            confidence_level=0.95,
+        )
+        emp_ci_schema = ConfidenceIntervalSchema(
+            confidence_level=0.95,
+            sample_size=n,
+            total_arrivals=emp_ci_res.total_arrivals,
+            point_estimate=round(emp_mean, 6),
+            lower_bound=emp_ci_res.lower_bound,
+            upper_bound=emp_ci_res.upper_bound,
+            method="Garwood Poisson on Empirical Sample Mean",
+            interpretation=(
+                f"Overall empirical sample mean across all {n} windows is {emp_mean:.4f} "
+                f"({emp_ci_res.total_arrivals} total arrivals). Under a hypothetical Poisson assumption over "
+                f"the complete observation sequence, the 95% interval would be [{emp_ci_res.lower_bound:.4f}, {emp_ci_res.upper_bound:.4f}]. "
+                f"Caution: This reflects overall observed intensity and must not be conflated with the calibrated baseline."
+            ),
+            is_valid=True,
+            explanation=None,
+        )
+    else:
+        emp_ci_schema = None
 
     # 3. Goodness of Fit Diagnostics
     # Test 1: Against the frozen/calibrated baseline lambda (df = k_bins - 1)
@@ -175,6 +352,7 @@ def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentSt
         original_alpha=exp.alpha,
         original_detected_count=exp.detected_window_count,
         confidence_interval=ci_schema,
+        confidence_interval_empirical=emp_ci_schema,
         goodness_of_fit_baseline=gof_b_schema,
         goodness_of_fit_empirical=gof_e_schema,
         distribution_fit=dist_fit,

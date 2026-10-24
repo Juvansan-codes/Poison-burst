@@ -558,38 +558,69 @@ function StatisticalAnalysisContent() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs text-[#A3A3A3]">95% Confidence Bounds for λ:</span>
-                <span className="font-mono text-base font-bold text-emerald-400">
-                  [{inspectedStats.confidence_interval.lower_bound.toFixed(4)},{' '}
-                  {inspectedStats.confidence_interval.upper_bound.toFixed(4)}]
-                </span>
-              </div>
+              {inspectedStats.confidence_interval.is_valid ? (
+                <>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-[#A3A3A3]">95% Confidence Bounds for Baseline λ:</span>
+                    <span className="font-mono text-base font-bold text-emerald-400">
+                      [{inspectedStats.confidence_interval.lower_bound.toFixed(4)},{' '}
+                      {inspectedStats.confidence_interval.upper_bound.toFixed(4)}]
+                    </span>
+                  </div>
 
-              <div className="rounded-md bg-[#101010] border border-[#292929] p-3 text-xs space-y-1.5 font-mono">
-                <div className="flex justify-between text-[#A3A3A3]">
-                  <span className="text-[#737373]">Sample Size (n):</span>
-                  <span>{inspectedStats.confidence_interval.sample_size} windows</span>
-                </div>
-                <div className="flex justify-between text-[#A3A3A3]">
-                  <span className="text-[#737373]">Total Observed Arrivals (T):</span>
-                  <span>{inspectedStats.confidence_interval.total_arrivals}</span>
-                </div>
-                <div className="flex justify-between text-[#A3A3A3]">
-                  <span className="text-[#737373]">Point Estimate (T/n):</span>
-                  <span className="text-[#F5F5F5] font-bold">{inspectedStats.confidence_interval.point_estimate.toFixed(4)}</span>
-                </div>
-              </div>
+                  <div className="rounded-md bg-[#101010] border border-[#292929] p-3 text-xs space-y-1.5 font-mono">
+                    <div className="flex justify-between text-[#A3A3A3]">
+                      <span className="text-[#737373]">Calibration Windows (n):</span>
+                      <span>{inspectedStats.confidence_interval.sample_size} windows</span>
+                    </div>
+                    <div className="flex justify-between text-[#A3A3A3]">
+                      <span className="text-[#737373]">Calibration Arrivals (T):</span>
+                      <span>{inspectedStats.confidence_interval.total_arrivals}</span>
+                    </div>
+                    <div className="flex justify-between text-[#A3A3A3]">
+                      <span className="text-[#737373]">Point Estimate (T/n):</span>
+                      <span className="text-[#F5F5F5] font-bold">{inspectedStats.confidence_interval.point_estimate.toFixed(4)}</span>
+                    </div>
+                  </div>
 
-              <p className="text-xs text-[#A3A3A3] leading-relaxed">
-                {inspectedStats.confidence_interval.interpretation}
-              </p>
+                  <p className="text-xs text-[#A3A3A3] leading-relaxed">
+                    {inspectedStats.confidence_interval.interpretation}
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-md bg-[#101010] border border-[#f59e0b]/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#f59e0b]">Baseline Interval Unavailable</span>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20">
+                      Non-Stationary / Violates Model
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A3A3A3] leading-relaxed">
+                    {inspectedStats.confidence_interval.explanation || inspectedStats.confidence_interval.interpretation}
+                  </p>
+                </div>
+              )}
+
+              {inspectedStats.confidence_interval_empirical && inspectedStats.confidence_interval_empirical.is_valid && (
+                <div className="rounded-md bg-[#101010] border border-[#292929] p-3 space-y-1.5">
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-[#737373]">Empirical Sample Mean Interval (All Windows):</span>
+                    <span className="font-mono text-xs font-semibold text-[#F5F5F5]">
+                      [{inspectedStats.confidence_interval_empirical.lower_bound.toFixed(4)},{' '}
+                      {inspectedStats.confidence_interval_empirical.upper_bound.toFixed(4)}]
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#737373] leading-snug">
+                    Point estimate: {inspectedStats.confidence_interval_empirical.point_estimate.toFixed(4)} ({inspectedStats.confidence_interval_empirical.sample_size} windows). Reflects overall sample arrival intensity across all traffic, not the isolated baseline.
+                  </p>
+                </div>
+              )}
 
               <div className="rounded border border-[#292929] bg-[#101010] p-3 text-xs text-[#A3A3A3] flex items-start gap-2">
                 <Info className="h-4 w-4 text-[#A3A3A3] shrink-0 mt-0.5" />
                 <span>
-                  <strong className="text-[#F5F5F5]">Parameter Uncertainty vs Anomaly Threshold:</strong> This interval reflects statistical
-                  uncertainty in estimating the baseline mean λ from sample data. It is mathematically distinct from the
+                  <strong className="text-[#F5F5F5]">Parameter Uncertainty vs Anomaly Threshold:</strong> This interval measures
+                  statistical uncertainty in the baseline mean λ from representative calibration data. It is mathematically distinct from the
                   upper-tail burst detection rule (p &lt; α).
                 </span>
               </div>

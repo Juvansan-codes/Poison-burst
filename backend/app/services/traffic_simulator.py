@@ -118,6 +118,14 @@ def run_traffic_simulation(req: SimulationRequest) -> SimulationResponse:
             count = int(rng.poisson(lam=lambda_window))
             is_injected_burst = False
 
+        # Determine if window represents normal baseline calibration
+        if req.scenario == SimulationScenario.POISSON_NORMAL:
+            is_calib = True
+        elif req.scenario == SimulationScenario.SUDDEN_BURST:
+            is_calib = not is_injected_burst
+        else:
+            is_calib = False
+
         obs = TrafficObservation(
             timestamp=iso_timestamp,
             time_seconds=t_sec,
@@ -128,6 +136,7 @@ def run_traffic_simulation(req: SimulationRequest) -> SimulationResponse:
             experiment_id=experiment_id,
             window_seconds=window_sec,
             expected_baseline_count=round(lambda_window, 4),
+            is_calibration=is_calib,
         )
         observations.append(obs)
         ground_truth_labels.append(is_injected_burst)

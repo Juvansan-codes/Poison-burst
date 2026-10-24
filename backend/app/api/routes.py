@@ -7,10 +7,13 @@ probability burst detection, batch analysis, dispersion checking, and simulation
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
+
+logger = logging.getLogger(__name__)
 
 from app.core.poisson import (
     calculate_dispersion,
@@ -307,9 +310,10 @@ def generate_simulation_experiment(req: SimulationRequest) -> SimulationResponse
             detail=str(err),
         )
     except Exception as err:
+        logger.error(f"Simulation failed unexpectedly: {err}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Simulation failed: {str(err)}",
+            detail="Simulation execution failed due to an unexpected server error. Please verify input parameters.",
         )
 
 
@@ -343,9 +347,10 @@ async def preview_historical_dataset(
             detail=str(err),
         )
     except Exception as err:
+        logger.error(f"CSV preview failed unexpectedly: {err}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to preview CSV: {str(err)}",
+            detail="Failed to preview CSV due to an unexpected server error.",
         )
 
 
@@ -409,6 +414,7 @@ async def analyze_historical_dataset(
                 "alpha": alpha,
                 "total_rows_processed": res.total_rows_processed,
                 "invalid_rows": res.invalid_rows,
+                "calibration_window_indices": res.calibration_window_indices,
             },
         )
         return res
@@ -418,9 +424,10 @@ async def analyze_historical_dataset(
             detail=str(err),
         )
     except Exception as err:
+        logger.error(f"Historical analysis failed unexpectedly: {err}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Historical analysis failed: {str(err)}",
+            detail="Historical analysis failed due to an unexpected server error.",
         )
 
 
@@ -559,7 +566,14 @@ def get_experiment_statistics(experiment_id: str) -> ExperimentStatisticsRespons
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Experiment '{experiment_id}' was not found in persistent storage.",
         )
-    return compute_experiment_statistics(exp)
+    try:
+        return compute_experiment_statistics(exp)
+    except Exception as err:
+        logger.error(f"Failed to compute statistics for experiment {experiment_id}: {err}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to calculate experiment statistics due to an unexpected server error.",
+        )
 
 
 @router.post(
@@ -580,7 +594,14 @@ def run_threshold_analysis(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Experiment '{experiment_id}' was not found in persistent storage.",
         )
-    return compute_threshold_sensitivity(exp, req.alphas)
+    try:
+        return compute_threshold_sensitivity(exp, req.alphas)
+    except Exception as err:
+        logger.error(f"Failed to compute threshold sensitivity for experiment {experiment_id}: {err}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to compute threshold sensitivity analysis due to an unexpected server error.",
+        )
 
 
 @router.get(
@@ -601,9 +622,10 @@ def download_experiment_pdf_report(experiment_id: str) -> Response:
     try:
         pdf_bytes = generate_experiment_pdf_report(exp)
     except Exception as err:
+        logger.error(f"PDF report generation failed: {err}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate PDF experiment report: {str(err)}",
+            detail="Failed to generate PDF experiment report due to an internal server error.",
         )
 
     safe_id = experiment_id.replace("\r", "").replace("\n", "").replace('"', "")
