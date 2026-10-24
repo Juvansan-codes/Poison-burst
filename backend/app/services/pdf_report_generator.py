@@ -417,7 +417,19 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
             Paragraph("Available (Labeled)" if exp.ground_truth_available else "Not Available (Unlabeled)", table_cell),
         ],
     ]
-    if exp.dataset_name:
+    if exp.experiment_type.value == "hardware":
+        config = exp.configuration or {}
+        nodes_list = config.get("expected_nodes", [])
+        nodes_str = ", ".join(nodes_list) if nodes_list else "All configured nodes"
+        node_counts = config.get("node_counts", {})
+        counts_str = ", ".join([f"{k}: {v}" for k, v in node_counts.items()]) if node_counts else "—"
+        meta_data.append([
+            Paragraph("<b>Target Nodes:</b>", table_cell),
+            Paragraph(nodes_str, table_cell),
+            Paragraph("<b>Node Contributions:</b>", table_cell),
+            Paragraph(counts_str, table_cell),
+        ])
+    elif exp.dataset_name:
         meta_data.append([
             Paragraph("<b>Dataset Filename:</b>", table_cell),
             Paragraph(exp.dataset_name, table_cell),
@@ -640,14 +652,85 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
         story.append(perf_table)
         story.append(Spacer(1, 6))
     else:
-        story.append(Paragraph(
-            "<b>Ground-Truth Performance Note:</b> Ground-truth burst labels were not available for this dataset. "
-            "In accordance with rigorous statistical practice, classification metrics (Precision, Recall, F1, FPR) "
-            "are not fabricated. The detector flagged " f"<b>{exp.detected_window_count}</b> unusual arrival windows "
-            f"based strictly on the upper-tail criterion p &lt; {exp.alpha}.",
-            body_style,
-        ))
+        if exp.experiment_type.value == "hardware":
+            story.append(Paragraph(
+                "<b>Hardware Evaluation Note:</b> In physical and simulated hardware monitoring, verified ground-truth labels "
+                "are unavailable. In accordance with rigorous statistical practice, classification metrics (Precision, Recall, "
+                "F1-Score, False Positive Rate) are legitimately omitted rather than fabricated. The detector identified "
+                f"<b>{exp.detected_window_count}</b> anomalous arrival windows based strictly on the upper-tail probability "
+                f"criterion p &lt; {exp.alpha}.",
+                body_style,
+            ))
+        else:
+            story.append(Paragraph(
+                "<b>Ground-Truth Performance Note:</b> Ground-truth burst labels were not available for this dataset. "
+                "In accordance with rigorous statistical practice, classification metrics (Precision, Recall, F1, FPR) "
+                "are not fabricated. The detector flagged " f"<b>{exp.detected_window_count}</b> unusual arrival windows "
+                f"based strictly on the upper-tail criterion p &lt; {exp.alpha}.",
+                body_style,
+            ))
         story.append(Spacer(1, 6))
+
+    # For hardware experiments: attach dedicated transport integrity table
+    if exp.experiment_type.value == "hardware":
+        cfg = exp.configuration or {}
+        tot_socket = cfg.get("total_socket_datagrams", 0)
+        val_datagrams = cfg.get("valid_datagrams", len(exp.observations))
+        malformed = cfg.get("malformed_datagrams", 0)
+        gaps_map = cfg.get("node_gaps", {})
+        total_gaps = sum(gaps_map.values()) if isinstance(gaps_map, dict) else 0
+        dups_map = cfg.get("node_duplicates", {})
+        total_dups = sum(dups_map.values()) if isinstance(dups_map, dict) else 0
+        calib_w = cfg.get("calibration_windows_count", 0)
+
+        hw_diag_data = [
+            [
+                Paragraph("Diagnostic Metric", table_header),
+                Paragraph("Observed Count", table_header),
+                Paragraph("Engineering Assessment & Transport Health", table_header),
+            ],
+            [
+                Paragraph("Total Socket Datagrams", table_cell),
+                Paragraph(str(tot_socket), table_cell),
+                Paragraph("Raw datagrams received on UDP listener socket", table_cell),
+            ],
+            [
+                Paragraph("Valid Accepted Telemetry", table_cell),
+                Paragraph(str(val_datagrams), table_cell),
+                Paragraph("Parsed UTF-8 JSON datagrams accepted into arrival counts", table_cell),
+            ],
+            [
+                Paragraph("Malformed Datagrams", table_cell),
+                Paragraph(str(malformed), table_cell),
+                Paragraph("Rejected syntax or corrupted datagrams (discarded)", table_cell),
+            ],
+            [
+                Paragraph("Estimated Sequence Gaps", table_cell),
+                Paragraph(str(total_gaps), table_cell),
+                Paragraph("Discontinuities in sequence numbers across transmitting nodes", table_cell),
+            ],
+            [
+                Paragraph("Duplicates / Out-of-Order", table_cell),
+                Paragraph(str(total_dups), table_cell),
+                Paragraph("Redundant datagrams deduplicated from window counts", table_cell),
+            ],
+            [
+                Paragraph("Calibration Baseline Windows", table_cell),
+                Paragraph(str(calib_w), table_cell),
+                Paragraph("Clean baseline windows used to freeze detector lambda", table_cell),
+            ],
+        ]
+        hw_table = Table(hw_diag_data, colWidths=[150, 90, 264])
+        hw_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(Paragraph("<b>Hardware Transport & Data-Quality Diagnostics:</b>", body_style))
+        story.append(hw_table)
+        story.append(Spacer(1, 8))
 
     # Sensitivity chart
     sens_buf = _create_sensitivity_figure(sensitivity)

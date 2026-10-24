@@ -236,7 +236,7 @@ function ExperimentHistoryContent() {
       {/* Header */}
       <PageHeader
         title="Experiment History & Comparison"
-        subtitle="Browse, inspect, compare, and export all completed simulation trials and historical CSV analyses. Results are persisted in SQLite and survive application restarts."
+        subtitle="Browse, inspect, compare, and export all completed simulation trials, historical CSV analyses, and hardware monitoring sessions. Results are persisted in SQLite and survive application restarts."
         badge="25CS203 Micro-Project"
         actions={
           <>
@@ -275,6 +275,7 @@ function ExperimentHistoryContent() {
             { id: 'all', label: 'All Experiments' },
             { id: 'simulation', label: 'Simulations' },
             { id: 'historical', label: 'Historical' },
+            { id: 'hardware', label: 'Hardware' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -406,7 +407,7 @@ function ExperimentHistoryContent() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <StatusBadge
                           label={exp.experiment_type}
-                          variant={exp.experiment_type === 'simulation' ? 'accent' : 'neutral'}
+                          variant={exp.experiment_type === 'simulation' ? 'accent' : (exp.experiment_type === 'hardware' ? 'warning' : 'neutral')}
                         />
                       </td>
                       <td className="px-4 py-3 font-mono text-[#A3A3A3] whitespace-nowrap">
@@ -794,7 +795,7 @@ function ExperimentHistoryContent() {
                     <p className="mt-1 text-[#A3A3A3] leading-relaxed">
                       You are comparing experiments with distinct measurement types:{' '}
                       <strong className="text-[#F5F5F5]">{distinctMeasurementTypes.join(', ')}</strong>.
-                      Network flow counts (aggregated connection records) and packet counts (discrete frame arrivals)
+                      Network flow counts, packet counts, and UDP datagram counts
                       represent fundamentally different physical phenomena and cannot be directly combined or equated.
                     </p>
                   </div>
@@ -819,7 +820,7 @@ function ExperimentHistoryContent() {
                           <span className="font-mono text-[#FF6A00]">{exp.experiment_id}</span>
                           <StatusBadge
                             label={exp.experiment_type}
-                            variant={exp.experiment_type === 'simulation' ? 'accent' : 'neutral'}
+                            variant={exp.experiment_type === 'simulation' ? 'accent' : (exp.experiment_type === 'hardware' ? 'warning' : 'neutral')}
                           />
                         </div>
                         <div className="text-xs text-[#A3A3A3] font-normal truncate mt-1" title={exp.title}>

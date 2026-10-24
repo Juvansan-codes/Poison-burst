@@ -1,0 +1,61 @@
+#ifndef NODE_CONFIG_H
+#define NODE_CONFIG_H
+
+/**
+ * =============================================================================
+ * PoissonBurst Lab - Hardware Traffic Node Configuration Template
+ * Target Microcontroller: Arduino UNO R4 WiFi (Renesas RA4M1 + ESP32-S3)
+ * Course: Probability and Statistics for Computer Science (25CS203)
+ * Institution: Karunya Institute of Technology and Sciences
+ * =============================================================================
+ *
+ * INSTRUCTIONS FOR DEPLOYMENT:
+ * 1. Copy this file to "node_config.h" in the same directory:
+ *      cp node_config.h.example node_config.h
+ * 2. Update the credentials and node configuration below for each specific board.
+ * 3. Never commit "node_config.h" containing real network passwords to Git.
+ *    ("node_config.h" is ignored by firmware/arduino_traffic_node/.gitignore).
+ * =============================================================================
+ */
+
+// =============================================================================
+// 1. Wi-Fi Network Credentials (2.4 GHz Local Network / Mobile Hotspot)
+// =============================================================================
+// Note: Use a private, dedicated access point (e.g. smartphone Wi-Fi hotspot
+// or a portable travel router). University or enterprise campus Wi-Fi networks
+// typically enforce "Client Isolation" (AP isolation) which blocks local peer-to-peer UDP.
+#define WIFI_SSID             "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD         "YOUR_WIFI_PASSWORD"
+
+// =============================================================================
+// 2. Monitoring Laptop Receiver Destination
+// =============================================================================
+// The IPv4 address of the laptop running the PoissonBurst backend.
+// Find this on Windows PowerShell using: ipconfig
+// Look for "IPv4 Address" under your active Wi-Fi adapter (e.g., 192.168.43.150).
+// DO NOT use 127.0.0.1 (loopback) - the Arduino must send to the laptop's LAN IP!
+#define RECEIVER_IP_STR       "192.168.1.100"
+
+// UDP destination port on the laptop receiver (default: 5005)
+#define RECEIVER_UDP_PORT     5005
+
+// =============================================================================
+// 3. Node Identification & Traffic Parameters
+// =============================================================================
+// Unique identifier for this board. Must be one of: "node_1", "node_2", "node_3", "node_4"
+#define NODE_ID               "node_1"
+
+// Normal transmission rate in events/second (Poisson arrival intensity lambda_normal)
+// Target default: 5.0 datagrams per second per node
+#define NORMAL_RATE_HZ        5.0f
+
+// Burst transmission rate in events/second (Poisson arrival intensity lambda_burst)
+// Target default: 50.0 datagrams per second
+#define BURST_RATE_HZ         50.0f
+
+// Permission to enter burst mode:
+// - Nodes 1, 2, and 3: Set to 'false' (pure baseline background traffic nodes)
+// - Node 4:           Set to 'true'  (designated experimental burst injection node)
+#define IS_BURST_CAPABLE      false
+
+#endif // NODE_CONFIG_H

@@ -516,6 +516,7 @@ class ExperimentType(str, Enum):
     """Category of traffic burst detection experiment."""
     SIMULATION = "simulation"
     HISTORICAL = "historical"
+    HARDWARE = "hardware"
 
 
 class ExperimentSummary(BaseModel):
@@ -576,6 +577,10 @@ class DashboardSummaryResponse(BaseModel):
     total_experiments: int
     simulation_experiments_count: int
     historical_experiments_count: int
+    hardware_experiments_count: int = Field(
+        default=0,
+        description="Total completed physical/simulated hardware monitoring experiments.",
+    )
     available_measurement_types: List[str]
     latest_experiment: Optional[ExperimentSummary] = None
     latest_detected_count: Optional[int] = None

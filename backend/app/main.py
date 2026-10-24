@@ -16,10 +16,23 @@ backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
+from app.api.hardware_routes import router as hardware_router
+from app.services.hardware_session_manager import get_hardware_session_manager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: do not bind or start hardware resources
+    yield
+    # Shutdown: cleanly stop and release any active hardware receiver and sockets
+    manager = get_hardware_session_manager()
+    manager.shutdown()
+
 
 app = FastAPI(
     title="PoissonBurst Lab API",
@@ -30,6 +43,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS restricted to local development origins
@@ -49,6 +63,7 @@ app.add_middleware(
 
 # Mount all API routes with /api prefix
 app.include_router(api_router, prefix="/api")
+app.include_router(hardware_router, prefix="/api/hardware")
 
 
 @app.get("/", tags=["Root"])

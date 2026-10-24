@@ -144,7 +144,45 @@ def extract_calibration_observations(
 
         return None, None, f"Baseline confidence interval is unavailable for simulation scenario '{scenario}'."
 
-    # 3. Hardware or other future modes
+    # 3. Hardware Monitoring Sessions
+    if exp.experiment_type == ExperimentType.HARDWARE:
+        # Check observations for explicit is_calibration flag
+        calib_obs = [
+            obs.count
+            for obs in exp.observations
+            if getattr(obs, "is_calibration", None) is True
+        ]
+        if calib_obs:
+            return (
+                calib_obs,
+                f"Calibrated from {len(calib_obs)} clean baseline observation windows collected during the hardware calibration period.",
+                None,
+            )
+
+        # Check configuration for calibration_counts list
+        config = exp.configuration or {}
+        calib_counts = config.get("calibration_counts")
+        if calib_counts and isinstance(calib_counts, list) and len(calib_counts) > 0:
+            return (
+                [int(c) for c in calib_counts],
+                f"Calibrated from {len(calib_counts)} baseline observation windows recorded in session configuration.",
+                None,
+            )
+
+        if not config.get("is_calibrated", False) and exp.baseline_lambda == 0.0:
+            return (
+                None,
+                None,
+                "Hardware session was stopped without finalizing baseline calibration; detector operated uncalibrated.",
+            )
+
+        return (
+            None,
+            None,
+            "Baseline calibration observations could not be extracted from stored hardware session data.",
+        )
+
+    # 4. Other future modes
     return None, None, "Baseline calibration observations cannot be established reliably."
 
 
@@ -329,7 +367,12 @@ def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentSt
         )
 
     # Determine source
-    source = TrafficSource.SIMULATION if exp.experiment_type.value == "simulation" else TrafficSource.HISTORICAL
+    if exp.experiment_type == ExperimentType.HARDWARE:
+        source = TrafficSource.HARDWARE
+    elif exp.experiment_type == ExperimentType.SIMULATION:
+        source = TrafficSource.SIMULATION
+    else:
+        source = TrafficSource.HISTORICAL
     if exp.observations and hasattr(exp.observations[0], "source"):
         source = exp.observations[0].source
 

@@ -1,0 +1,13 @@
+# PoissonBurst Lab - Firmware Git Ignore
+# Exclude local hardware configuration containing sensitive Wi-Fi credentials
+node_config.h
+
+# Arduino IDE / CLI build outputs and temporary caches
+build/
+.cache/
+*.bin
+*.hex
+*.elf
+*.o
+*.d
+*.map

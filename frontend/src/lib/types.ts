@@ -204,7 +204,7 @@ export interface HistoricalAnalysisResponse {
   model_limitation_note: string;
 }
 
-export type ExperimentType = 'simulation' | 'historical';
+export type ExperimentType = 'simulation' | 'historical' | 'hardware';
 
 export interface ExperimentSummary {
   experiment_id: string;
@@ -244,6 +244,7 @@ export interface DashboardSummaryResponse {
   total_experiments: number;
   simulation_experiments_count: number;
   historical_experiments_count: number;
+  hardware_experiments_count?: number;
   available_measurement_types: string[];
   latest_experiment?: ExperimentSummary | null;
   latest_detected_count?: number | null;
@@ -341,5 +342,138 @@ export interface ThresholdAnalysisResponse {
   original_detected_count: number;
   note: string;
 }
+
+// =============================================================================
+// Hardware Session & Observation Window Types (Phase 5 / Phase 6)
+// =============================================================================
+
+export type HardwareSessionState = 'IDLE' | 'CALIBRATING' | 'MONITORING' | 'STOPPED';
+
+export type NodeLivenessStatus = 'ACTIVE' | 'STALE' | 'NEVER_OBSERVED';
+
+export type WindowDetectionStatus = 'calibrating' | 'normal' | 'burst' | 'unavailable';
+
+export type WindowQualityStatus =
+  | 'complete_clean'
+  | 'complete_with_gaps'
+  | 'missing_nodes'
+  | 'burst_contaminated'
+  | 'partial';
+
+export interface HardwareStartRequest {
+  bind_host?: string;
+  bind_port?: number;
+  window_seconds?: number;
+  alpha?: number;
+  expected_nodes?: string[];
+  min_calibration_windows?: number;
+  stale_node_timeout_seconds?: number;
+  require_all_nodes?: boolean;
+}
+
+export interface HardwareStartResponse {
+  session_id: string;
+  state: HardwareSessionState | string;
+  bind_host: string;
+  bind_port: number;
+  window_seconds: number;
+  alpha: number;
+  expected_nodes: string[];
+  min_calibration_windows: number;
+  stale_node_timeout_seconds: number;
+  require_all_nodes: boolean;
+  started_at_utc: string;
+  message: string;
+}
+
+export interface HardwareCalibrationFinalizeResponse {
+  session_id: string;
+  state: HardwareSessionState | string;
+  eligible_windows_count: number;
+  excluded_windows_count: number;
+  exclusion_reasons: Record<string, number>;
+  expected_count_per_window: number;
+  rate_per_second: number;
+  window_seconds: number;
+  alpha: number;
+  calibrated_at_utc: string;
+}
+
+export interface HardwareStatusResponse {
+  has_active_session: boolean;
+  session_id: string | null;
+  state: HardwareSessionState | string;
+  receiver_running: boolean;
+  bind_host: string | null;
+  bind_port: number | null;
+  total_socket_datagrams: number;
+  valid_datagrams: number;
+  malformed_datagrams: number;
+  unique_datagrams: number;
+  node_liveness: Record<string, NodeLivenessStatus | string>;
+  node_last_seen_utc: Record<string, string | null>;
+  node_counts: Record<string, number>;
+  node_gaps: Record<string, number>;
+  node_duplicates: Record<string, number>;
+  calibration_windows_count: number;
+  completed_windows_count: number;
+  burst_windows_count: number;
+  is_calibrated: boolean;
+  baseline_expected_count: number | null;
+  baseline_rate_per_second: number | null;
+  last_error: string | null;
+}
+
+export interface HardwareWindowSchema {
+  window_index: number;
+  start_time_monotonic: number;
+  end_time_monotonic: number;
+  start_time_utc: string;
+  end_time_utc: string;
+  duration_seconds: number;
+  aggregate_count: number;
+  node_counts: Record<string, number>;
+  node_modes: Record<string, string>;
+  node_liveness: Record<string, string>;
+  is_complete: boolean;
+  is_partial: boolean;
+  quality: WindowQualityStatus | string;
+  is_calibration: boolean;
+  is_calibration_eligible: boolean;
+  ineligibility_reason: string | null;
+  expected_baseline_count: number | null;
+  p_value: number | null;
+  is_burst: boolean | null;
+  alpha: number | null;
+  detection_status: WindowDetectionStatus | string;
+  detection_unavailable_reason: string | null;
+}
+
+export interface HardwareLiveWindowsResponse {
+  session_id: string | null;
+  state: HardwareSessionState | string;
+  total_windows: number;
+  returned_windows_count: number;
+  windows: HardwareWindowSchema[];
+}
+
+export interface HardwareStopResponse {
+  session_id: string;
+  final_state: HardwareSessionState | string;
+  total_valid_datagrams: number;
+  node_counts: Record<string, number>;
+  completed_windows_count: number;
+  partial_windows_count: number;
+  burst_detections_count: number;
+  unavailable_detections_count: number;
+  is_calibrated: boolean;
+  baseline_expected_count: number | null;
+  clean_shutdown: boolean;
+  message: string;
+  experiment_id?: string | null;
+  persisted?: boolean;
+  persistence_error?: string | null;
+}
+
 
 

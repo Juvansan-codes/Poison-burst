@@ -7,7 +7,7 @@ interface MetricCardProps {
   helper?: string;
   icon?: LucideIcon;
   badge?: string;
-  badgeVariant?: 'accent' | 'neutral' | 'success' | 'error';
+  badgeVariant?: 'accent' | 'neutral' | 'success' | 'error' | 'warning';
   highlight?: boolean;
   className?: string;
 }
@@ -27,6 +27,7 @@ export default function MetricCard({
     neutral: 'bg-[#191919] text-[#A3A3A3] border-[#292929]',
     success: 'bg-[rgba(34,197,94,0.1)] text-[#22c55e] border-[rgba(34,197,94,0.25)]',
     error: 'bg-[rgba(239,68,68,0.1)] text-[#ef4444] border-[rgba(239,68,68,0.25)]',
+    warning: 'bg-[rgba(255,106,0,0.12)] text-[#FF6A00] border-[rgba(255,106,0,0.4)]',
   };
 
   return (

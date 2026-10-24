@@ -384,7 +384,7 @@ function StatisticalAnalysisContent() {
                 </span>
                 <StatusBadge
                   label={inspectedStats.experiment_type}
-                  variant={inspectedStats.experiment_type === 'simulation' ? 'accent' : 'neutral'}
+                  variant={inspectedStats.experiment_type === 'simulation' ? 'accent' : (inspectedStats.experiment_type === 'hardware' ? 'warning' : 'neutral')}
                 />
                 <span className="rounded bg-[#101010] text-[#A3A3A3] font-mono text-[10px] px-2 py-0.5 border border-[#292929]">
                   Unit: {inspectedStats.measurement_type}

@@ -27,6 +27,12 @@ import {
   SimulationRequest,
   SimulationResponse,
   ThresholdAnalysisResponse,
+  HardwareStartRequest,
+  HardwareStartResponse,
+  HardwareCalibrationFinalizeResponse,
+  HardwareStatusResponse,
+  HardwareLiveWindowsResponse,
+  HardwareStopResponse,
 } from './types';
 
 const API_BASE_URL =
@@ -370,6 +376,78 @@ export const api = {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  // ===========================================================================
+  // Hardware Session & Monitoring Endpoints (Phase 5 / Phase 6)
+  // ===========================================================================
+
+  /**
+   * Start a hardware telemetry session, bind UDP socket, and begin baseline calibration.
+   */
+  async startHardwareSession(
+    payload?: HardwareStartRequest
+  ): Promise<HardwareStartResponse> {
+    return request<HardwareStartResponse>('/api/hardware/start', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
+  /**
+   * Finalize the baseline calibration phase, calculate lambda hat, and enter monitoring.
+   */
+  async finalizeHardwareCalibration(): Promise<HardwareCalibrationFinalizeResponse> {
+    return request<HardwareCalibrationFinalizeResponse>('/api/hardware/calibration/finalize', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Inspect comprehensive real-time hardware status, packet counters, and node liveness.
+   */
+  async getHardwareStatus(): Promise<HardwareStatusResponse> {
+    return request<HardwareStatusResponse>('/api/hardware/status', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Retrieve recent completed observation windows and burst detection decisions.
+   */
+  async getHardwareLive(
+    limit: number = 50,
+    afterWindowIndex?: number
+  ): Promise<HardwareLiveWindowsResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', String(limit));
+    if (afterWindowIndex !== undefined && afterWindowIndex !== null) {
+      params.append('after_window_index', String(afterWindowIndex));
+    }
+    const qs = params.toString();
+    const endpoint = qs ? `/api/hardware/live?${qs}` : '/api/hardware/live';
+    return request<HardwareLiveWindowsResponse>(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Cleanly terminate the active hardware session and retrieve in-memory summary.
+   */
+  async stopHardwareSession(): Promise<HardwareStopResponse> {
+    return request<HardwareStopResponse>('/api/hardware/stop', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Retry persisting a stopped hardware session whose previous save failed.
+   */
+  async retryHardwarePersistence(sessionId?: string): Promise<HardwareStopResponse> {
+    const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+    return request<HardwareStopResponse>(`/api/hardware/persist/retry${qs}`, {
+      method: 'POST',
+    });
   },
 };
 

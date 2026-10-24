@@ -30,6 +30,7 @@ from app.core.schemas import (
     SimulationRequest,
     SimulationResponse,
     TrafficObservation,
+    TrafficSource,
 )
 
 
@@ -297,6 +298,232 @@ class ExperimentRepository:
             evaluation=res.evaluation,
         )
 
+    def save_hardware_experiment(
+        self,
+        session_id: str,
+        config: Dict[str, Any],
+        summary: Any,  # HardwareStopResponse
+        windows: List[Any],  # List[HardwareWindow]
+        rec_status: Dict[str, Any],
+        proc_status: Dict[str, Any],
+    ) -> ExperimentSummary:
+        """Persist a completed hardware monitoring session to SQLite.
+
+        Converts observation windows to standard TrafficObservation records,
+        preserving calibration provenance, per-node counts, sequence diagnostics,
+        and authoritative Poisson upper-tail burst detection outcomes.
+
+        Args:
+            session_id: Unique hardware session identifier.
+            config: Session configuration parameters (host, port, window duration, alpha, nodes).
+            summary: HardwareStopResponse containing final datagram and detection totals.
+            windows: Sequence of completed HardwareWindow dataclasses from processor.
+            rec_status: Final snapshot of receiver packet counters and node telemetry.
+            proc_status: Final snapshot of processor state, calibration, and rates.
+
+        Returns:
+            ExperimentSummary representing the saved hardware experiment.
+        """
+        # Idempotency check: if this session is already saved, return existing summary
+        existing = self.get_experiment(session_id)
+        if existing:
+            return ExperimentSummary(
+                experiment_id=existing.experiment_id,
+                experiment_type=existing.experiment_type,
+                created_at=existing.created_at,
+                title=existing.title,
+                scenario=existing.scenario,
+                measurement_type=existing.measurement_type,
+                window_seconds=existing.window_seconds,
+                baseline_lambda=existing.baseline_lambda,
+                baseline_rate_per_second=existing.baseline_rate_per_second,
+                alpha=existing.alpha,
+                observation_count=existing.observation_count,
+                detected_window_count=existing.detected_window_count,
+                ground_truth_available=existing.ground_truth_available,
+                dataset_name=existing.dataset_name,
+                summary=existing.summary,
+                evaluation=existing.evaluation,
+            )
+
+        created_at = datetime.now(timezone.utc).isoformat()
+        port = config.get("bind_port", 5005)
+        host = config.get("bind_host", "0.0.0.0")
+        w_sec = float(config.get("window_seconds", 1.0))
+        alpha_val = float(config.get("alpha", 0.01))
+        expected_nodes = list(config.get("expected_nodes", []))
+        short_id = session_id[:8]
+        title = f"Hardware: {short_id} ({len(expected_nodes)} nodes)"
+        scenario_desc = f"Four-Node UDP Listener ({host}:{port})"
+
+        # Base lambda and rate from processor
+        base_lambda = float(proc_status.get("baseline_expected_count") or 0.0)
+        base_rate = float(proc_status.get("baseline_rate_per_second") or 0.0)
+
+        # Convert observation windows to standard TrafficObservation records
+        observations: List[TrafficObservation] = []
+        detections: List[DetectionResponse] = []
+
+        for w in windows:
+            exp_count = (
+                float(w.expected_baseline_count)
+                if getattr(w, "expected_baseline_count", None) is not None
+                else base_lambda
+            )
+
+            obs = TrafficObservation(
+                timestamp=w.start_time_utc,
+                time_seconds=round(w.window_index * w_sec, 3),
+                count=int(w.aggregate_count),
+                source=TrafficSource.HARDWARE,
+                measurement_type=MeasurementType.UDP_DATAGRAM_COUNT,
+                ground_truth=None,  # Real physical hardware has no synthetic ground truth
+                experiment_id=session_id,
+                window_seconds=w_sec,
+                expected_baseline_count=exp_count,
+                is_calibration=bool(w.is_calibration),
+            )
+            observations.append(obs)
+
+            p_val = float(w.p_value) if getattr(w, "p_value", None) is not None else 1.0
+            is_burst_flag = bool(w.is_burst) if getattr(w, "is_burst", None) is not None else False
+            det_alpha = float(w.alpha) if getattr(w, "alpha", None) is not None else alpha_val
+
+            det_status_val = getattr(w.detection_status, "value", str(getattr(w, "detection_status", "normal")))
+            if is_burst_flag:
+                interp = f"ALERT: Statistically unusual arrival count {w.aggregate_count} (p={p_val:.6e} < alpha={det_alpha})."
+            elif getattr(w, "p_value", None) is not None:
+                interp = f"NORMAL: Arrival count {w.aggregate_count} within expected variation (p={p_val:.6f} >= alpha={det_alpha})."
+            else:
+                interp = f"UNAVAILABLE: Detection unavailable ({det_status_val})."
+
+            det = DetectionResponse(
+                observed_count=int(w.aggregate_count),
+                expected_rate=exp_count,
+                p_value=p_val,
+                alpha=det_alpha,
+                is_burst=is_burst_flag,
+                interpretation=interp,
+            )
+            detections.append(det)
+
+        # Complete metadata configuration dictionary
+        node_counts = getattr(summary, "node_counts", {})
+        config_dict: Dict[str, Any] = {
+            "session_id": session_id,
+            "bind_host": host,
+            "bind_port": port,
+            "window_seconds": w_sec,
+            "alpha": alpha_val,
+            "expected_nodes": expected_nodes,
+            "min_calibration_windows": int(config.get("min_calibration_windows", 10)),
+            "stale_node_timeout_seconds": float(config.get("stale_node_timeout_seconds", 5.0)),
+            "require_all_nodes": bool(config.get("require_all_nodes", True)),
+            "node_counts": node_counts,
+            "node_gaps": {nid: n.get("sequence_gaps_count", 0) for nid, n in rec_status.get("nodes", {}).items()},
+            "node_duplicates": {nid: n.get("duplicate_or_reordered_count", 0) for nid, n in rec_status.get("nodes", {}).items()},
+            "node_last_seen_utc": {nid: n.get("last_receipt_time_utc") for nid, n in rec_status.get("nodes", {}).items()},
+            "node_liveness": proc_status.get("node_liveness", {}),
+            "total_socket_datagrams": rec_status.get("total_socket_datagrams", 0),
+            "valid_datagrams": rec_status.get("valid_datagrams", 0),
+            "malformed_datagrams": rec_status.get("malformed_datagrams", 0),
+            "unique_datagrams": rec_status.get("unique_datagrams", 0),
+            "is_calibrated": bool(proc_status.get("is_calibrated", False)),
+            "baseline_expected_count": proc_status.get("baseline_expected_count"),
+            "baseline_rate_per_second": proc_status.get("baseline_rate_per_second"),
+            "calibration_windows_count": proc_status.get("calibration_windows_count", 0),
+            "calibration_counts": [w.aggregate_count for w in windows if w.is_calibration],
+        }
+
+        dataset_label = f"UDP Listener ({len(expected_nodes)} nodes)"
+        burst_count = int(getattr(summary, "burst_detections_count", sum(1 for w in windows if getattr(w, "is_burst", None) is True)))
+
+        total_valid = getattr(summary, "total_valid_datagrams", rec_status.get("valid_datagrams", len(observations)))
+        summary_text = (
+            f"Hardware telemetry session completed with {total_valid} "
+            f"valid datagrams across {len(windows)} observation windows (W={w_sec}s). "
+            f"{burst_count} Poisson bursts detected (alpha={alpha_val})."
+        )
+        limitation_note = (
+            "Hardware observation counts represent actual accepted unique UDP datagrams received per observation window. "
+            "Physical hardware telemetry does not include synthetic ground-truth labels; evaluation metrics (Precision, Recall, F1) "
+            "are legitimately unavailable. Legitimate zero-count observation windows are preserved in calibration and monitoring."
+        )
+
+        obs_json = json.dumps([obs.model_dump() for obs in observations])
+        det_json = json.dumps([det.model_dump() for det in detections])
+        config_json = json.dumps(config_dict)
+
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO experiments (
+                    experiment_id,
+                    experiment_type,
+                    created_at,
+                    title,
+                    scenario,
+                    measurement_type,
+                    window_seconds,
+                    baseline_lambda,
+                    baseline_rate_per_second,
+                    alpha,
+                    observation_count,
+                    detected_window_count,
+                    ground_truth_available,
+                    dataset_name,
+                    summary,
+                    model_limitation_note,
+                    evaluation_metrics,
+                    configuration,
+                    observations,
+                    detections
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    session_id,
+                    ExperimentType.HARDWARE.value,
+                    created_at,
+                    title,
+                    scenario_desc,
+                    MeasurementType.UDP_DATAGRAM_COUNT.value,
+                    w_sec,
+                    base_lambda,
+                    base_rate,
+                    alpha_val,
+                    len(observations),
+                    burst_count,
+                    0,  # ground_truth_available is False
+                    dataset_label,
+                    summary_text,
+                    limitation_note,
+                    None,  # evaluation_metrics
+                    config_json,
+                    obs_json,
+                    det_json,
+                ),
+            )
+            conn.commit()
+
+        return ExperimentSummary(
+            experiment_id=session_id,
+            experiment_type=ExperimentType.HARDWARE,
+            created_at=created_at,
+            title=title,
+            scenario=scenario_desc,
+            measurement_type=MeasurementType.UDP_DATAGRAM_COUNT,
+            window_seconds=w_sec,
+            baseline_lambda=base_lambda,
+            baseline_rate_per_second=base_rate,
+            alpha=alpha_val,
+            observation_count=len(observations),
+            detected_window_count=burst_count,
+            ground_truth_available=False,
+            dataset_name=dataset_label,
+            summary=summary_text,
+            evaluation=None,
+        )
+
     def get_experiment(self, experiment_id: str) -> Optional[ExperimentDetailResponse]:
         """Retrieve full details of an experiment by its unique ID."""
         with self._get_connection() as conn:
@@ -468,6 +695,12 @@ class ExperimentRepository:
             )
             hist_count = cursor.fetchone()["total"]
 
+            cursor.execute(
+                "SELECT COUNT(*) AS total FROM experiments WHERE experiment_type = ?;",
+                (ExperimentType.HARDWARE.value,),
+            )
+            hw_count = cursor.fetchone()["total"]
+
             cursor.execute("SELECT DISTINCT measurement_type FROM experiments ORDER BY measurement_type;")
             measurement_types = [row["measurement_type"] for row in cursor.fetchall()]
 
@@ -534,6 +767,7 @@ class ExperimentRepository:
                 total_experiments=total_experiments,
                 simulation_experiments_count=sim_count,
                 historical_experiments_count=hist_count,
+                hardware_experiments_count=hw_count,
                 available_measurement_types=measurement_types,
                 latest_experiment=latest_exp,
                 latest_detected_count=latest_detected,

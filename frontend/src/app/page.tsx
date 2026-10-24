@@ -14,6 +14,7 @@ import {
   Flame,
   FlaskConical,
   History,
+  Radio,
   RefreshCw,
 } from 'lucide-react';
 import {
@@ -208,7 +209,7 @@ export default function DashboardPage() {
       )}
 
       {/* Top Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <MetricCard
           label="Total Saved Experiments"
           value={loading && !summary ? '...' : summary?.total_experiments ?? 0}
@@ -232,6 +233,14 @@ export default function DashboardPage() {
           icon={History}
           badge="CSV Ingestion"
           badgeVariant="neutral"
+        />
+        <MetricCard
+          label="Hardware Telemetry"
+          value={loading && !summary ? '...' : summary?.hardware_experiments_count ?? 0}
+          helper="Multi-node UDP monitoring runs"
+          icon={Radio}
+          badge="Hardware"
+          badgeVariant="warning"
         />
         <MetricCard
           label="Bursts in Latest Run"
@@ -259,7 +268,7 @@ export default function DashboardPage() {
         <EmptyState
           icon={Database}
           title="No Experiments Recorded Yet"
-          description="Run a synthetic traffic simulation or analyze a historical CSV dataset to generate and persist reproducible experimental results."
+          description="Run a synthetic traffic simulation, analyze a historical CSV dataset, or monitor hardware UDP telemetry to generate and persist reproducible experimental results."
           action={
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/simulation" className="btn-primary">
@@ -269,6 +278,10 @@ export default function DashboardPage() {
               <Link href="/historical" className="btn-secondary">
                 <History className="h-4 w-4" />
                 <span>Analyze Historical CSV</span>
+              </Link>
+              <Link href="/hardware" className="btn-secondary">
+                <Radio className="h-4 w-4" />
+                <span>Hardware Lab</span>
               </Link>
             </div>
           }

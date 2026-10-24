@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   Activity,
   BarChart3,
+  Cpu,
   Database,
   FlaskConical,
   History,
@@ -21,6 +22,11 @@ const navItems = [
     name: 'Dashboard',
     href: '/',
     icon: LayoutDashboard,
+  },
+  {
+    name: 'Hardware Lab',
+    href: '/hardware',
+    icon: Cpu,
   },
   {
     name: 'Historical Replay',
