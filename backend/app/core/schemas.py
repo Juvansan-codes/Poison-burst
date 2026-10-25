@@ -639,13 +639,35 @@ class ExperimentStatisticsResponse(BaseModel):
     observation_count: int
     window_seconds: float
     ground_truth_available: bool
-    empirical_mean: float
+    empirical_mean: float = Field(
+        description="All-session empirical mean across all completed observation windows (calibration + monitoring).",
+    )
     sample_variance: float
     variance_to_mean_ratio: float
     dispersion_type: str
     baseline_lambda: float
     baseline_rate_per_second: float
     calibration_window_count: Optional[int] = None
+    calibration_empirical_mean: Optional[float] = Field(
+        default=None,
+        description="Empirical mean computed exclusively from completed calibration windows. "
+        "Available only for hardware experiments with explicit calibration phase.",
+    )
+    monitoring_empirical_mean: Optional[float] = Field(
+        default=None,
+        description="Empirical mean computed exclusively from accepted unique arrivals across completed monitoring windows, "
+        "excluding calibration windows and incomplete windows. "
+        "Available only for hardware experiments with explicit calibration phase.",
+    )
+    monitoring_window_count: Optional[int] = Field(
+        default=None,
+        description="Number of completed monitoring windows used to compute monitoring_empirical_mean.",
+    )
+    data_quality_warning: Optional[str] = Field(
+        default=None,
+        description="Data quality warning if transport filtering or sequence deduplication "
+        "materially affected observation arrival counts.",
+    )
     original_alpha: float
     original_detected_count: int
     confidence_interval: ConfidenceIntervalSchema

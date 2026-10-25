@@ -235,6 +235,8 @@ class HardwareSessionManager:
             node_last_seen = {nid: n["last_receipt_time_utc"] for nid, n in rec_status["nodes"].items()}
             node_gaps = {nid: n["sequence_gaps_count"] for nid, n in rec_status["nodes"].items()}
             node_duplicates = {nid: n["duplicate_or_reordered_count"] for nid, n in rec_status["nodes"].items()}
+            node_boot_ids = {nid: n.get("active_boot_id") for nid, n in rec_status["nodes"].items()}
+            node_boot_transitions = {nid: n.get("boot_transitions_count", 0) for nid, n in rec_status["nodes"].items()}
 
             return HardwareStatusResponse(
                 has_active_session=self.is_active,
@@ -252,6 +254,8 @@ class HardwareSessionManager:
                 node_counts=node_counts,
                 node_gaps=node_gaps,
                 node_duplicates=node_duplicates,
+                node_boot_ids=node_boot_ids,
+                node_boot_transitions=node_boot_transitions,
                 calibration_windows_count=proc_status["calibration_windows_count"],
                 completed_windows_count=proc_status["total_completed_windows"],
                 burst_windows_count=proc_status["burst_windows_count"],
@@ -307,6 +311,7 @@ class HardwareSessionManager:
                         node_counts=w.node_counts,
                         node_modes=w.node_modes,
                         node_liveness=w.node_liveness,
+                        node_boot_ids=getattr(w, "node_boot_ids", {}),
                         is_complete=w.is_complete,
                         is_partial=w.is_partial,
                         quality=w.quality.value,
@@ -361,6 +366,10 @@ class HardwareSessionManager:
             completed_windows = self._processor.get_windows(include_partial=False)
 
             total_valid = rec_status["valid_datagrams"]
+            unique_valid = rec_status.get("unique_datagrams", total_valid)
+            dup_valid = total_valid - unique_valid if total_valid >= unique_valid else 0
+            pw_data = proc_status.get("partial_window")
+            pw_datagrams = pw_data.get("aggregate_count", 0) if pw_data else 0
             node_counts = {nid: n["valid_packets_count"] for nid, n in rec_status["nodes"].items()}
             burst_count = sum(1 for w in completed_windows if w.is_burst is True)
             unavail_count = sum(
@@ -373,6 +382,9 @@ class HardwareSessionManager:
                 session_id=session_id,
                 final_state="STOPPED",
                 total_valid_datagrams=total_valid,
+                unique_datagrams=unique_valid,
+                duplicate_datagrams=dup_valid,
+                partial_window_datagrams=pw_datagrams,
                 node_counts=node_counts,
                 completed_windows_count=len(completed_windows),
                 partial_windows_count=1 if has_partial else 0,

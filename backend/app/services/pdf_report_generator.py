@@ -476,6 +476,11 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
     # =========================================================================
     story.append(Paragraph("2. Empirical Sample Statistics & Mean-Variance Analysis", heading_style))
 
+    # Determine appropriate label for empirical mean based on experiment type
+    is_hw = exp.experiment_type.value == "hardware"
+    mean_label = "All-Session Mean (X̄)" if is_hw else "Empirical Mean (X̄)"
+    mean_desc = "Average arrival count across all session windows (calibration + monitoring)" if is_hw else "Sample average arrival count per window"
+
     stats_table_data = [
         [
             Paragraph("Metric", table_header),
@@ -490,11 +495,33 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
             Paragraph("Total observation intervals evaluated", table_cell),
         ],
         [
-            Paragraph("Empirical Mean (X̄)", table_cell),
+            Paragraph(mean_label, table_cell),
             Paragraph(f"{stats.empirical_mean:.4f}", table_cell),
             Paragraph(f"λ = {stats.baseline_lambda:.4f}", table_cell),
-            Paragraph("Sample average arrival count per window", table_cell),
+            Paragraph(mean_desc, table_cell),
         ],
+    ]
+
+    # Add phase-specific means for hardware experiments
+    if is_hw:
+        if stats.calibration_empirical_mean is not None:
+            ci_sample = stats.confidence_interval
+            calib_n = ci_sample.sample_size if ci_sample.is_valid else "?"
+            stats_table_data.append([
+                Paragraph("Calibration Mean", table_cell),
+                Paragraph(f"{stats.calibration_empirical_mean:.4f}", table_cell),
+                Paragraph(f"λ = {stats.baseline_lambda:.4f}", table_cell),
+                Paragraph(f"Mean across {calib_n} calibration windows only", table_cell),
+            ])
+        if stats.monitoring_empirical_mean is not None:
+            stats_table_data.append([
+                Paragraph("Monitoring Mean (Accepted)", table_cell),
+                Paragraph(f"<b>{stats.monitoring_empirical_mean:.4f}</b>", table_cell),
+                Paragraph(f"λ = {stats.baseline_lambda:.4f}", table_cell),
+                Paragraph(f"Mean accepted unique arrivals across {stats.monitoring_window_count} monitoring windows (deduplicated arrivals excluded)", table_cell),
+            ])
+
+    stats_table_data.extend([
         [
             Paragraph("Sample Variance (s²)", table_cell),
             Paragraph(f"{stats.sample_variance:.4f}", table_cell),
@@ -513,7 +540,7 @@ def generate_experiment_pdf_report(exp: ExperimentDetailResponse) -> bytes:
             Paragraph(f"Expected false alarms: ~{int(round(stats.observation_count * exp.alpha))}", table_cell),
             Paragraph(f"Rate: {(stats.original_detected_count / max(1, stats.observation_count)) * 100:.2f}% of windows", table_cell),
         ],
-    ]
+    ])
     stats_table = Table(stats_table_data, colWidths=[140, 80, 120, 164])
     stats_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),

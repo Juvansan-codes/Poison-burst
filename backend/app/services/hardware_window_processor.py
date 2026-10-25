@@ -135,6 +135,7 @@ class AggregatedWindow:
     node_last_seq: Dict[str, Optional[int]] = field(default_factory=dict)
     node_gaps_count: Dict[str, int] = field(default_factory=dict)
     node_duplicates_count: Dict[str, int] = field(default_factory=dict)
+    node_boot_ids: Dict[str, Optional[str]] = field(default_factory=dict)
     is_complete: bool = True
     is_partial: bool = False
     quality: WindowQuality = WindowQuality.COMPLETE_CLEAN
@@ -224,6 +225,10 @@ class HardwareWindowProcessor:
         self._expected_nodes: Set[str] = set(self.config.expected_node_ids)
         self._node_last_seq: Dict[str, Optional[int]] = {nid: None for nid in self._expected_nodes}
         self._node_last_seen_monotonic: Dict[str, Optional[float]] = {nid: None for nid in self._expected_nodes}
+        self._node_active_boot_id: Dict[str, Optional[str]] = {nid: None for nid in self._expected_nodes}
+        self._node_retired_boot_ids: Dict[str, Set[str]] = {nid: set() for nid in self._expected_nodes}
+        self._node_boot_transitions_count: Dict[str, int] = {nid: 0 for nid in self._expected_nodes}
+        self._node_boot_transitions: Dict[str, List[Dict[str, Any]]] = {nid: [] for nid in self._expected_nodes}
 
         # Window state
         self._current_window_index: int = 0
@@ -298,6 +303,10 @@ class HardwareWindowProcessor:
             # Reset per-node tracking
             self._node_last_seq = {nid: None for nid in self._expected_nodes}
             self._node_last_seen_monotonic = {nid: None for nid in self._expected_nodes}
+            self._node_active_boot_id = {nid: None for nid in self._expected_nodes}
+            self._node_retired_boot_ids = {nid: set() for nid in self._expected_nodes}
+            self._node_boot_transitions_count = {nid: 0 for nid in self._expected_nodes}
+            self._node_boot_transitions = {nid: [] for nid in self._expected_nodes}
 
             if initial_active_nodes is not None:
                 for nid in initial_active_nodes:
@@ -402,28 +411,72 @@ class HardwareWindowProcessor:
             if self._current_window_end_mono is not None and pkt_mono >= self._current_window_end_mono:
                 self._advance_time_internal(pkt_mono)
 
-            # Check sequence ordering and deduplication for this node
-            prev_seq = self._node_last_seq.get(packet.node_id)
+            # Check sequence ordering, deduplication, and reboot transitions
+            is_v2 = (packet.version >= 2 and packet.boot_id is not None)
             is_unique = True
             is_gap = False
             gap_size = 0
 
-            if prev_seq is not None:
-                expected_seq = (prev_seq + 1) & 0xFFFFFFFF
-                if packet.seq == expected_seq:
-                    is_unique = True
-                elif packet.seq > prev_seq:
-                    # Sequence gap: missing transmission attempt, NOT an arrival
-                    is_unique = True
-                    is_gap = True
-                    gap_size = packet.seq - prev_seq - 1
-                else:
-                    # Rollover check
-                    if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
+            if not is_v2:
+                # Protocol V1: Strict monotonic sequence tracking (no reboot detection)
+                prev_seq = self._node_last_seq.get(packet.node_id)
+                if prev_seq is not None:
+                    expected_seq = (prev_seq + 1) & 0xFFFFFFFF
+                    if packet.seq == expected_seq:
                         is_unique = True
+                    elif packet.seq > prev_seq:
+                        is_unique = True
+                        is_gap = True
+                        gap_size = packet.seq - prev_seq - 1
                     else:
-                        # Duplicate or out-of-order sequence
-                        is_unique = False
+                        if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
+                            is_unique = True
+                        else:
+                            is_unique = False
+            else:
+                # Protocol V2: Boot-aware sequence tracking and reboot recovery
+                active_boot = self._node_active_boot_id.get(packet.node_id)
+                retired_boots = self._node_retired_boot_ids.setdefault(packet.node_id, set())
+
+                if active_boot is None:
+                    # First observation of this node under Protocol V2
+                    self._node_active_boot_id[packet.node_id] = packet.boot_id
+                    is_unique = True
+                elif packet.boot_id == active_boot:
+                    # Normal sequence check within active boot session
+                    prev_seq = self._node_last_seq.get(packet.node_id)
+                    if prev_seq is not None:
+                        expected_seq = (prev_seq + 1) & 0xFFFFFFFF
+                        if packet.seq == expected_seq:
+                            is_unique = True
+                        elif packet.seq > prev_seq:
+                            is_unique = True
+                            is_gap = True
+                            gap_size = packet.seq - prev_seq - 1
+                        else:
+                            if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
+                                is_unique = True
+                            else:
+                                is_unique = False
+                elif packet.boot_id in retired_boots:
+                    # Delayed packet from a previously retired boot session
+                    # Policy: Do NOT switch session back. Exclude from unique arrivals.
+                    is_unique = False
+                else:
+                    # New, previously unseen boot_id -> REBOOT DETECTED!
+                    retired_boots.add(active_boot)
+                    self._node_boot_transitions_count[packet.node_id] = (
+                        self._node_boot_transitions_count.get(packet.node_id, 0) + 1
+                    )
+                    self._node_boot_transitions.setdefault(packet.node_id, []).append({
+                        "from_boot_id": active_boot,
+                        "to_boot_id": packet.boot_id,
+                        "last_seq_before_reboot": self._node_last_seq.get(packet.node_id),
+                        "initial_seq_after_reboot": packet.seq,
+                        "received_mono": pkt_mono,
+                    })
+                    self._node_active_boot_id[packet.node_id] = packet.boot_id
+                    is_unique = True
 
             # Update per-node session tracking
             self._node_last_seen_monotonic[packet.node_id] = pkt_mono
@@ -607,6 +660,7 @@ class HardwareWindowProcessor:
             node_last_seq=dict(self._current_node_last_seq),
             node_gaps_count=dict(self._current_node_gaps),
             node_duplicates_count=dict(self._current_node_duplicates),
+            node_boot_ids=dict(self._node_active_boot_id),
             is_complete=is_complete,
             is_partial=is_partial,
             quality=quality,

@@ -311,6 +311,10 @@ export interface ExperimentStatisticsResponse {
   baseline_lambda: number;
   baseline_rate_per_second: number;
   calibration_window_count?: number | null;
+  calibration_empirical_mean?: number | null;
+  monitoring_empirical_mean?: number | null;
+  monitoring_window_count?: number | null;
+  data_quality_warning?: string | null;
   original_alpha: number;
   original_detected_count: number;
   confidence_interval: ConfidenceIntervalSchema;
@@ -415,6 +419,8 @@ export interface HardwareStatusResponse {
   node_counts: Record<string, number>;
   node_gaps: Record<string, number>;
   node_duplicates: Record<string, number>;
+  node_boot_ids?: Record<string, string | null>;
+  node_boot_transitions?: Record<string, number>;
   calibration_windows_count: number;
   completed_windows_count: number;
   burst_windows_count: number;
@@ -435,6 +441,7 @@ export interface HardwareWindowSchema {
   node_counts: Record<string, number>;
   node_modes: Record<string, string>;
   node_liveness: Record<string, string>;
+  node_boot_ids?: Record<string, string | null>;
   is_complete: boolean;
   is_partial: boolean;
   quality: WindowQualityStatus | string;
@@ -461,6 +468,9 @@ export interface HardwareStopResponse {
   session_id: string;
   final_state: HardwareSessionState | string;
   total_valid_datagrams: number;
+  unique_datagrams?: number;
+  duplicate_datagrams?: number;
+  partial_window_datagrams?: number;
   node_counts: Record<string, number>;
   completed_windows_count: number;
   partial_windows_count: number;

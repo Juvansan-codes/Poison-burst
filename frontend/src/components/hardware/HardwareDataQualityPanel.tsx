@@ -97,8 +97,16 @@ export default function HardwareDataQualityPanel({ status }: HardwareDataQuality
       </div>
 
       {/* Warnings & Active Issues */}
-      {(staleNodes.length > 0 || neverObservedNodes.length > 0 || malformedCount > 0) && (
+      {(staleNodes.length > 0 || neverObservedNodes.length > 0 || malformedCount > 0 || totalDuplicates > 0) && (
         <div className="space-y-2 pt-1">
+          {totalDuplicates > 0 && (
+            <div className="p-2.5 rounded bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.25)] flex items-start gap-2 text-xs text-yellow-500">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-yellow-500" />
+              <div>
+                <strong>Sequence Filtering Active:</strong> {totalDuplicates} datagrams with sequence numbers &le; node high-water marks were filtered out. If nodes or simulator restarted without continuing sequences, accepted arrival rates may underrepresent total generated traffic.
+              </div>
+            </div>
+          )}
           {staleNodes.length > 0 && (
             <div className="p-2.5 rounded bg-[rgba(255,106,0,0.08)] border border-[rgba(255,106,0,0.25)] flex items-start gap-2 text-xs text-[#FF6A00]">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />

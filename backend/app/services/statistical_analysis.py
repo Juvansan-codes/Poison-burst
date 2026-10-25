@@ -376,6 +376,44 @@ def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentSt
     if exp.observations and hasattr(exp.observations[0], "source"):
         source = exp.observations[0].source
 
+    # 6. Phase-specific empirical means for hardware experiments
+    calibration_empirical_mean = None
+    monitoring_empirical_mean = None
+    monitoring_window_count = None
+    data_quality_warning = None
+
+    if exp.experiment_type == ExperimentType.HARDWARE:
+        calib_obs_list = [obs for obs in observations if getattr(obs, "is_calibration", None) is True]
+        mon_obs_list = [obs for obs in observations if getattr(obs, "is_calibration", None) is not True]
+
+        if calib_obs_list:
+            calib_sum = sum(obs.count for obs in calib_obs_list)
+            calibration_empirical_mean = round(calib_sum / len(calib_obs_list), 6)
+
+        if mon_obs_list:
+            mon_sum = sum(obs.count for obs in mon_obs_list)
+            monitoring_window_count = len(mon_obs_list)
+            monitoring_empirical_mean = round(mon_sum / monitoring_window_count, 6)
+
+        summary_parts.append(
+            f"Phase-specific means: calibration = {calibration_empirical_mean if calibration_empirical_mean is not None else 'N/A'}, "
+            f"monitoring = {monitoring_empirical_mean if monitoring_empirical_mean is not None else 'N/A'} "
+            f"({monitoring_window_count if monitoring_window_count is not None else 0} monitoring windows; accepted arrivals only)."
+        )
+
+        cfg = exp.configuration or {}
+        total_valid = cfg.get("valid_datagrams", 0)
+        dup_count = cfg.get("duplicate_datagrams", 0)
+        if dup_count > 0:
+            dup_pct = (dup_count / max(1, total_valid)) * 100
+            data_quality_warning = (
+                f"Data Quality Note: Sequence filtering rejected {dup_count} of {total_valid} valid datagrams ({dup_pct:.1f}%) "
+                "with sequence numbers not exceeding per-node high-water marks. Because sequence numbers may reset across simulator restarts, "
+                "client reconnections, or device resets, the accepted observation rate may underrepresent total generated traffic. "
+                "Monitoring statistics reflect accepted unique arrivals per window, not raw transmission counts."
+            )
+            summary_parts.append(data_quality_warning)
+
     return ExperimentStatisticsResponse(
         experiment_id=exp.experiment_id,
         title=exp.title,
@@ -392,6 +430,10 @@ def compute_experiment_statistics(exp: ExperimentDetailResponse) -> ExperimentSt
         baseline_lambda=exp.baseline_lambda,
         baseline_rate_per_second=exp.baseline_rate_per_second,
         calibration_window_count=calibration_windows,
+        calibration_empirical_mean=calibration_empirical_mean,
+        monitoring_empirical_mean=monitoring_empirical_mean,
+        monitoring_window_count=monitoring_window_count,
+        data_quality_warning=data_quality_warning,
         original_alpha=exp.alpha,
         original_detected_count=exp.detected_window_count,
         confidence_interval=ci_schema,

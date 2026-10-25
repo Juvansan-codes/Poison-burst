@@ -209,46 +209,38 @@ Uptime             : 18 seconds
 
 ## 7. UDP Telemetry Specification
 
-Each arrival event transmits **exactly one UDP datagram** containing a compact UTF-8 JSON payload:
+Each arrival event transmits **exactly one UDP datagram** containing a compact UTF-8 JSON payload. The firmware supports both Protocol V1 and Protocol V2:
 
+### Protocol V1 (Legacy Schema)
 ```json
 {"version":1,"node_id":"node_1","seq":1042,"uptime_ms":128450,"mode":"normal"}
 ```
 
+### Protocol V2 (Boot-Aware Reboot Recovery Schema)
+```json
+{"version":2,"node_id":"node_1","seq":1042,"uptime_ms":128450,"mode":"normal","boot_id":"3a8f1b2c"}
+```
+
 ### Field Definitions
 
-| Field | Type | Description |
-|---|---|---|
-| `version` | `integer` | Protocol schema version (`1`). |
-| `node_id` | `string` | Stable board identity (`"node_1"`, `"node_2"`, `"node_3"`, `"node_4"`). |
-| `seq` | `unsigned long` | Monotonically increasing sequence number per node ($1, 2, 3, \dots$). |
-| `uptime_ms` | `unsigned long` | Microcontroller elapsed runtime in milliseconds (`millis()`). |
-| `mode` | `string` | Current operational traffic state: `"normal"` or `"burst"`. |
+| Field | Type | Protocol | Description |
+|---|---|---|---|
+| `version` | `integer` | V1, V2 | Protocol schema version (`1` or `2`). |
+| `node_id` | `string` | V1, V2 | Stable board identity (`"node_1"`, `"node_2"`, `"node_3"`, `"node_4"`). |
+| `seq` | `unsigned long` | V1, V2 | Monotonically increasing sequence number per node/boot session ($1, 2, 3, \dots$). |
+| `uptime_ms` | `unsigned long` | V1, V2 | Microcontroller elapsed runtime in milliseconds (`millis()`). |
+| `mode` | `string` | V1, V2 | Current operational traffic state: `"normal"` or `"burst"`. |
+| `boot_id` | `string` | V2 | 8-character hexadecimal string identifying this specific microcontroller boot session. |
+
+### Boot Identifier Generation & Limitations
+
+* **Entropy Sources:** `boot_id` is derived in `generate_boot_identifier()` by combining high-resolution `micros()`/`millis()` jitter after the non-deterministic 802.11 handshake, floating analog ADC noise on `A0`–`A2`, the FNV-1a hash of `NODE_ID`, and the Arduino `random()` LCG output.
+* **Limitations:** The Renesas RA4M1 microcontroller hardware True Random Number Generator (TRNG) is not exposed via standard Arduino APIs. Floating analog readings may be correlated across rapid cold reboots. While `boot_id` provides excellent practical collision resistance across reboots in laboratory sessions, it is **not** cryptographically secure or mathematically guaranteed to be globally unique.
+* **Security Notice:** `boot_id` is an operational session disambiguator, **not a security credential or authentication token**.
 
 ### Important Architectural Distinctions
-* **No Synchronization Needed:** Microcontroller clocks and laptop clocks do not need to be synchronized. The authoritative arrival timestamp for window binning is applied by the laptop receiver upon packet reception.
-* **Loss vs Reordering:** Sequence numbers allow the backend to track per-node packet drop rates and detect out-of-order delivery.
+* **Reboot Recovery:** Under Protocol V2, when an Arduino reboots and resets its sequence number to 1, the backend receiver recognizes the new `boot_id`, records the boot transition in session diagnostics, safely resets the sequence high-water mark, and accepts the post-reboot packets rather than classifying them as duplicates.
+* **Delayed Packet Immunity:** If delayed packets from a retired `boot_id` arrive after a reboot, the backend classifies them as duplicates without thrashing or switching back to the old boot session.
+* **No Time Sync Needed:** Microcontroller clocks and laptop clocks do not require NTP synchronization. Arrival timestamps for tumbling observation windows are recorded by the backend upon receipt.
 * **Zero Heap Allocation:** Payloads are formatted using `snprintf()` into a fixed stack buffer, eliminating dynamic memory fragmentation during high-rate 50 Hz burst intervals.
 
----
-
-## 8. Verification: Compilation vs. Hardware Deployment
-
-* **Verified in Phase 1 (Compilation):**
-  * The sketch compiles cleanly with 0 errors and 0 warnings using the official `arduino:renesas_uno:unor4wifi` compiler.
-  * Flash usage: 26% (70.5 KB). SRAM usage: 28% (9.2 KB).
-  * Missing configuration check verified: emits clear `#error` guidance if `node_config.h` is missing.
-* **Unverified in Phase 1 (Requires Physical Hardware in Phase 2):**
-  * Physical Wi-Fi radio association with your specific hotspot.
-  * Live UDP socket transmission over the air.
-  * Empirically measured arrival jitter, Wi-Fi latency, and packet loss rate.
-
----
-
-## 9. Next Steps (Phase 2 Preview)
-
-In **Phase 2**, we will implement the Python UDP receiver service on the laptop:
-1. Bind a non-blocking UDP socket to `0.0.0.0:5005`.
-2. Capture live datagrams from 1 physical Arduino node.
-3. Validate sequence continuity, packet parsing, and arrival timestamps.
-4. Verify that empirical arrival counts conform to the configured 5.0 Hz arrival intensity.

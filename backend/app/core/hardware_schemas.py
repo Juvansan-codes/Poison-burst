@@ -115,6 +115,8 @@ class HardwareStatusResponse(BaseModel):
     node_counts: Dict[str, int] = Field(default_factory=dict)
     node_gaps: Dict[str, int] = Field(default_factory=dict)
     node_duplicates: Dict[str, int] = Field(default_factory=dict)
+    node_boot_ids: Dict[str, Optional[str]] = Field(default_factory=dict)
+    node_boot_transitions: Dict[str, int] = Field(default_factory=dict)
     calibration_windows_count: int = 0
     completed_windows_count: int = 0
     burst_windows_count: int = 0
@@ -136,6 +138,7 @@ class HardwareWindowSchema(BaseModel):
     node_counts: Dict[str, int]
     node_modes: Dict[str, str]
     node_liveness: Dict[str, str]
+    node_boot_ids: Dict[str, Optional[str]] = Field(default_factory=dict)
     is_complete: bool
     is_partial: bool
     quality: str
@@ -164,6 +167,18 @@ class HardwareStopResponse(BaseModel):
     session_id: str
     final_state: str = "STOPPED"
     total_valid_datagrams: int
+    unique_datagrams: int = Field(
+        default=0,
+        description="Total unique accepted telemetry datagrams across all nodes.",
+    )
+    duplicate_datagrams: int = Field(
+        default=0,
+        description="Total deduplicated or out-of-order datagrams excluded from window arrivals.",
+    )
+    partial_window_datagrams: int = Field(
+        default=0,
+        description="Unique datagrams assigned to the trailing partial window (not persisted in completed observation series).",
+    )
     node_counts: Dict[str, int]
     completed_windows_count: int
     partial_windows_count: int

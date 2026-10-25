@@ -364,6 +364,15 @@ class ExperimentRepository:
         observations: List[TrafficObservation] = []
         detections: List[DetectionResponse] = []
 
+        def _is_calib_eligible(win: Any) -> bool:
+            if not getattr(win, "is_calibration", False):
+                return False
+            qual = getattr(win, "quality", None)
+            qual_val = qual.value if hasattr(qual, "value") else str(qual or "")
+            if getattr(win, "ineligibility_reason", None) or qual_val in ("burst_contaminated", "missing_nodes", "partial"):
+                return False
+            return True
+
         for w in windows:
             exp_count = (
                 float(w.expected_baseline_count)
@@ -381,7 +390,7 @@ class ExperimentRepository:
                 experiment_id=session_id,
                 window_seconds=w_sec,
                 expected_baseline_count=exp_count,
-                is_calibration=bool(w.is_calibration),
+                is_calibration=_is_calib_eligible(w),
             )
             observations.append(obs)
 
@@ -404,11 +413,20 @@ class ExperimentRepository:
                 alpha=det_alpha,
                 is_burst=is_burst_flag,
                 interpretation=interp,
+                timestamp=w.start_time_utc,
+                time_seconds=round(w.window_index * w_sec, 3),
             )
             detections.append(det)
 
         # Complete metadata configuration dictionary
         node_counts = getattr(summary, "node_counts", {})
+        total_valid = getattr(summary, "total_valid_datagrams", rec_status.get("valid_datagrams", len(observations)))
+        unique_valid = getattr(summary, "unique_datagrams", rec_status.get("unique_datagrams", sum(w.aggregate_count for w in windows)))
+        dup_count = getattr(summary, "duplicate_datagrams", total_valid - unique_valid if total_valid >= unique_valid else 0)
+        pw_datagrams = getattr(summary, "partial_window_datagrams", 0)
+        pw_count = getattr(summary, "partial_windows_count", 0)
+        eligible_calib_counts = [w.aggregate_count for w in windows if _is_calib_eligible(w)]
+
         config_dict: Dict[str, Any] = {
             "session_id": session_id,
             "bind_host": host,
@@ -423,32 +441,47 @@ class ExperimentRepository:
             "node_gaps": {nid: n.get("sequence_gaps_count", 0) for nid, n in rec_status.get("nodes", {}).items()},
             "node_duplicates": {nid: n.get("duplicate_or_reordered_count", 0) for nid, n in rec_status.get("nodes", {}).items()},
             "node_last_seen_utc": {nid: n.get("last_receipt_time_utc") for nid, n in rec_status.get("nodes", {}).items()},
+            "node_boot_ids": {nid: n.get("active_boot_id") for nid, n in rec_status.get("nodes", {}).items()},
+            "node_boot_transitions": {nid: n.get("boot_transitions_count", 0) for nid, n in rec_status.get("nodes", {}).items()},
             "node_liveness": proc_status.get("node_liveness", {}),
             "total_socket_datagrams": rec_status.get("total_socket_datagrams", 0),
-            "valid_datagrams": rec_status.get("valid_datagrams", 0),
+            "valid_datagrams": total_valid,
+            "unique_datagrams": unique_valid,
+            "duplicate_datagrams": dup_count,
+            "partial_window_datagrams": pw_datagrams,
+            "partial_windows_count": pw_count,
             "malformed_datagrams": rec_status.get("malformed_datagrams", 0),
-            "unique_datagrams": rec_status.get("unique_datagrams", 0),
             "is_calibrated": bool(proc_status.get("is_calibrated", False)),
             "baseline_expected_count": proc_status.get("baseline_expected_count"),
             "baseline_rate_per_second": proc_status.get("baseline_rate_per_second"),
             "calibration_windows_count": proc_status.get("calibration_windows_count", 0),
-            "calibration_counts": [w.aggregate_count for w in windows if w.is_calibration],
+            "calibration_counts": eligible_calib_counts,
+            "calibration_result": proc_status.get("calibration_result"),
         }
 
         dataset_label = f"UDP Listener ({len(expected_nodes)} nodes)"
         burst_count = int(getattr(summary, "burst_detections_count", sum(1 for w in windows if getattr(w, "is_burst", None) is True)))
 
-        total_valid = getattr(summary, "total_valid_datagrams", rec_status.get("valid_datagrams", len(observations)))
+        dup_clause = f", {dup_count} deduplicated" if dup_count > 0 else ""
+        pw_clause = f", {pw_datagrams} in trailing partial window" if pw_datagrams > 0 else ""
         summary_text = (
-            f"Hardware telemetry session completed with {total_valid} "
-            f"valid datagrams across {len(windows)} observation windows (W={w_sec}s). "
-            f"{burst_count} Poisson bursts detected (alpha={alpha_val})."
+            f"Hardware telemetry session completed with {total_valid} valid datagrams "
+            f"({unique_valid} unique arrivals{dup_clause}{pw_clause}) across {len(windows)} "
+            f"completed observation windows (W={w_sec}s). {burst_count} Poisson bursts detected (alpha={alpha_val})."
         )
         limitation_note = (
             "Hardware observation counts represent actual accepted unique UDP datagrams received per observation window. "
             "Physical hardware telemetry does not include synthetic ground-truth labels; evaluation metrics (Precision, Recall, F1) "
             "are legitimately unavailable. Legitimate zero-count observation windows are preserved in calibration and monitoring."
         )
+        if dup_count > 0:
+            dup_pct = (dup_count / max(1, total_valid)) * 100
+            limitation_note += (
+                f" DATA QUALITY WARNING: Sequence filtering rejected {dup_count} of {total_valid} valid datagrams ({dup_pct:.1f}%) "
+                "with sequence numbers not exceeding per-node high-water marks. Because sequence numbers may reset across simulator restarts, "
+                "client reconnections, or device resets, the accepted observation rate may underrepresent total generated traffic. "
+                "Monitoring statistics reflect accepted unique arrivals per window, not raw transmission counts."
+            )
 
         obs_json = json.dumps([obs.model_dump() for obs in observations])
         det_json = json.dumps([det.model_dump() for det in detections])
@@ -807,6 +840,23 @@ class ExperimentRepository:
         output.write(f"# Observation Count: {exp.observation_count}\n")
         output.write(f"# Detected Bursts: {exp.detected_window_count}\n")
         output.write(f"# Ground Truth Available: {exp.ground_truth_available}\n")
+        if exp.experiment_type.value == "hardware":
+            calib_obs = [o for o in exp.observations if getattr(o, "is_calibration", None) is True]
+            mon_obs = [o for o in exp.observations if getattr(o, "is_calibration", None) is not True]
+            if exp.observations:
+                output.write(f"# All-Session Empirical Mean: {sum(o.count for o in exp.observations) / len(exp.observations):.4f} accepted arrivals/window ({len(exp.observations)} windows)\n")
+            if calib_obs:
+                output.write(f"# Calibration Phase Empirical Mean: {sum(o.count for o in calib_obs) / len(calib_obs):.4f} accepted arrivals/window ({len(calib_obs)} windows)\n")
+            if mon_obs:
+                output.write(f"# Monitoring Phase Empirical Mean (Accepted Arrivals): {sum(o.count for o in mon_obs) / len(mon_obs):.4f} accepted arrivals/window ({len(mon_obs)} windows)\n")
+            cfg = exp.configuration or {}
+            total_valid = cfg.get("valid_datagrams", 0)
+            dup_count = cfg.get("duplicate_datagrams", 0)
+            if dup_count > 0:
+                output.write(
+                    f"# Data Quality Warning: Sequence filtering rejected {dup_count} of {total_valid} valid datagrams. "
+                    "Accepted observation rates reflect accepted unique arrivals per window and may underrepresent total generated traffic.\n"
+                )
         output.write("# Note: Aggregated time windows, NOT raw packets or unaggregated flows.\n")
 
         writer = csv.writer(output)

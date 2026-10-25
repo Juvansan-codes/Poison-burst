@@ -428,12 +428,28 @@ function StatisticalAnalysisContent() {
               </div>
 
               <div className="rounded-md bg-[#101010] border border-[#292929] p-3">
-                <span className="stat-label block">Empirical Mean (X̄)</span>
+                <span className="stat-label block">
+                  {inspectedStats.experiment_type === 'hardware' ? 'All-Session Mean (X̄)' : 'Empirical Mean (X̄)'}
+                </span>
                 <span className="stat-value text-base text-[#F5F5F5] mt-1 block">
                   {inspectedStats.empirical_mean.toFixed(4)}
                 </span>
-                <span className="stat-helper block">sample average count</span>
+                <span className="stat-helper block">
+                  {inspectedStats.experiment_type === 'hardware' ? 'calib + monitoring avg' : 'sample average count'}
+                </span>
               </div>
+
+              {inspectedStats.monitoring_empirical_mean != null && (
+                <div className="rounded-md bg-[#101010] border border-[#292929] p-3">
+                  <span className="stat-label block">Monitoring Mean (Accepted)</span>
+                  <span className="stat-value text-base text-cyan-400 mt-1 block">
+                    {inspectedStats.monitoring_empirical_mean.toFixed(4)}
+                  </span>
+                  <span className="stat-helper block">
+                    {inspectedStats.monitoring_window_count ?? '?'} accepted mon windows
+                  </span>
+                </div>
+              )}
 
               <div className="rounded-md bg-[#101010] border border-[#292929] p-3">
                 <span className="stat-label block">Sample Variance (s²)</span>
@@ -479,6 +495,17 @@ function StatisticalAnalysisContent() {
                 </span>
               </div>
             </div>
+
+            {/* Data Quality Warning Notice */}
+            {inspectedStats.data_quality_warning && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-300 flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                <div>
+                  <strong className="block text-amber-200 mb-0.5">Statistical Data Quality Notice:</strong>
+                  <p className="leading-relaxed">{inspectedStats.data_quality_warning}</p>
+                </div>
+              </div>
+            )}
 
             {/* Statistical Summary Statement */}
             <div className="rounded-md bg-[#101010] border border-[#292929] p-3.5 text-xs text-[#A3A3A3]">

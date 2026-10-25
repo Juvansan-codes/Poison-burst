@@ -111,7 +111,7 @@ class TestProtocolValidation:
 
     def test_unsupported_protocol_version(self):
         payload = {
-            "version": 2,
+            "version": 3,
             "node_id": "node_1",
             "seq": 1,
             "uptime_ms": 1000,
@@ -119,7 +119,28 @@ class TestProtocolValidation:
         }
         with pytest.raises(ValidationError) as exc_info:
             validate_telemetry_payload(json.dumps(payload).encode("utf-8"))
-        assert "Unsupported protocol version 2" in str(exc_info.value)
+        assert "Unsupported protocol version 3" in str(exc_info.value)
+
+    def test_protocol_v2_validation(self):
+        # Valid V2 packet
+        payload_v2 = {
+            "version": 2,
+            "node_id": "node_1",
+            "seq": 1,
+            "uptime_ms": 1000,
+            "mode": "normal",
+            "boot_id": "boot_1234abcd",
+        }
+        pkt = validate_telemetry_payload(json.dumps(payload_v2).encode("utf-8"))
+        assert pkt.version == 2
+        assert pkt.boot_id == "boot_1234abcd"
+
+        # Missing boot_id in V2
+        del payload_v2["boot_id"]
+        with pytest.raises(ValidationError) as exc_info:
+            validate_telemetry_payload(json.dumps(payload_v2).encode("utf-8"))
+        assert "boot_id" in str(exc_info.value)
+
 
     @pytest.mark.parametrize("invalid_node", ["node_5", "arduino_1", "NODE_1", "", "router"])
     def test_invalid_node_identifier(self, invalid_node: str):

@@ -18,6 +18,8 @@ interface HardwareNodeCardProps {
   duplicatesCount: number;
   lastSeenUtc: string | null;
   isActiveSession: boolean;
+  bootId?: string | null;
+  bootTransitions?: number;
 }
 
 export default function HardwareNodeCard({
@@ -30,6 +32,8 @@ export default function HardwareNodeCard({
   duplicatesCount,
   lastSeenUtc,
   isActiveSession,
+  bootId = null,
+  bootTransitions = 0,
 }: HardwareNodeCardProps) {
   // Format last seen timestamp
   const formatTime = (isoString: string | null): string => {
@@ -156,6 +160,18 @@ export default function HardwareNodeCard({
             </span>
           </div>
         </div>
+
+        {/* Protocol V2 Boot Session Info */}
+        {bootId && (
+          <div className="mt-2 px-2 py-1 rounded bg-[#101010] border border-[#242424] flex items-center justify-between text-[10px] font-mono">
+            <span className="text-[#737373]">Boot: <span className="text-[#A3A3A3] font-semibold">{bootId}</span></span>
+            {bootTransitions > 0 && (
+              <span className="text-emerald-400 bg-[rgba(34,197,94,0.1)] px-1.5 py-0.2 rounded border border-[rgba(34,197,94,0.25)] text-[9px]">
+                {bootTransitions} reboot{bootTransitions > 1 ? 's' : ''} recovered
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer Diagnostic Note */}

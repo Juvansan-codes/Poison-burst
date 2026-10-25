@@ -82,6 +82,10 @@
   #define IS_BURST_CAPABLE false
 #endif
 
+#ifndef PROTOCOL_VERSION
+  #define PROTOCOL_VERSION 2
+#endif
+
 // =============================================================================
 // Operational Modes and Node State
 // =============================================================================
@@ -93,8 +97,12 @@ enum TrafficMode {
 // Current operating mode
 TrafficMode current_mode = MODE_NORMAL;
 
+// Node boot session identifier (Protocol V2)
+char node_boot_id[17] = "00000000";
+
 // Monotonically increasing sequence number (increments on every transmission attempt)
 uint32_t sequence_number = 0;
+
 
 // Lifetime packet transmission counters
 uint32_t packets_transmitted = 0;
@@ -196,6 +204,34 @@ void seed_random_generator() {
   randomSeed(seed);
 }
 
+/**
+ * Generates a 32-bit pseudorandom boot session identifier formatted as an
+ * 8-character hexadecimal string.
+ *
+ * ENTROPY SOURCES & METHODOLOGY:
+ * Combines:
+ * 1. FNV-1a 32-bit hash of the configured NODE_ID string.
+ * 2. Unconnected floating analog pin voltages (A0, A1, A2).
+ * 3. Microsecond jitter from the 802.11 Wi-Fi connection handshake (millis() & micros()).
+ * 4. 32-bit pseudorandom value drawn after randomSeed().
+ *
+ * UNIQUENESS LIMITATIONS (HONEST SCIENTIFIC APPRAISAL):
+ * - The Arduino UNO R4 WiFi uses a Renesas RA4M1 microcontroller. While the silicon contains
+ *   a True Random Number Generator (TRNG), it is not exposed in the standard Arduino core API.
+ * - Floating analog pins are capacitive; adjacent circuitry or stable ambient conditions
+ *   can yield correlated ADC readings across rapid consecutive cold boots.
+ * - The standard Arduino random() implementation uses a Linear Congruential Generator (LCG).
+ * - CONCLUSION: This boot_id provides practical pseudo-random session differentiation across
+ *   reboots, but does NOT guarantee cryptographic randomness or mathematical uniqueness.
+ */
+void generate_boot_identifier() {
+  uint32_t entropy = (uint32_t)micros() ^ ((uint32_t)millis() << 16);
+  uint32_t r1 = (uint32_t)random(1, 65536);
+  uint32_t r2 = (uint32_t)random(1, 65536);
+  uint32_t val = entropy ^ ((r1 << 16) | r2);
+  snprintf(node_boot_id, sizeof(node_boot_id), "%08lx", (unsigned long)val);
+}
+
 // =============================================================================
 // UDP Transmission Handler
 // =============================================================================
@@ -213,8 +249,21 @@ void transmit_event() {
   const char* mode_str = (current_mode == MODE_BURST) ? "burst" : "normal";
 
   // Format compact JSON payload into a static buffer
-  char payload[160];
-  int len = snprintf(
+  char payload[200];
+  int len = 0;
+#if PROTOCOL_VERSION >= 2
+  len = snprintf(
+    payload,
+    sizeof(payload),
+    "{\"version\":2,\"node_id\":\"%s\",\"seq\":%lu,\"uptime_ms\":%lu,\"mode\":\"%s\",\"boot_id\":\"%s\"}",
+    NODE_ID,
+    (unsigned long)sequence_number,
+    uptime_ms,
+    mode_str,
+    node_boot_id
+  );
+#else
+  len = snprintf(
     payload,
     sizeof(payload),
     "{\"version\":1,\"node_id\":\"%s\",\"seq\":%lu,\"uptime_ms\":%lu,\"mode\":\"%s\"}",
@@ -223,6 +272,7 @@ void transmit_event() {
     uptime_ms,
     mode_str
   );
+#endif
 
   if (len < 0 || len >= (int)sizeof(payload)) {
     Serial.println(F("[ERROR] Payload formatting buffer overflow."));
@@ -327,6 +377,10 @@ void print_status_report() {
   Serial.println();
   Serial.println(F("--- [NODE STATUS REPORT] ---"));
   Serial.print(F("Node ID            : ")); Serial.println(NODE_ID);
+  Serial.print(F("Protocol Version   : V")); Serial.println(PROTOCOL_VERSION);
+  if (PROTOCOL_VERSION >= 2) {
+    Serial.print(F("Boot Identifier    : ")); Serial.println(node_boot_id);
+  }
   Serial.print(F("Operating Mode     : ")); Serial.println((current_mode == MODE_BURST) ? F("BURST (50 Hz)") : F("NORMAL (5 Hz)"));
   Serial.print(F("Burst Capable      : ")); Serial.println(IS_BURST_CAPABLE ? F("YES") : F("NO"));
   Serial.print(F("Wi-Fi Status       : ")); Serial.println((WiFi.status() == WL_CONNECTED) ? F("CONNECTED") : F("DISCONNECTED"));
@@ -412,6 +466,7 @@ void setup() {
   Serial.println(F("================================================================="));
 
   Serial.print(F("[CONFIG] Node Identity      : ")); Serial.println(NODE_ID);
+  Serial.print(F("[CONFIG] Protocol Version   : V")); Serial.println(PROTOCOL_VERSION);
   Serial.print(F("[CONFIG] Burst Capable      : ")); Serial.println(IS_BURST_CAPABLE ? F("YES (Permitted to burst)") : F("NO (Background node)"));
   Serial.print(F("[CONFIG] Normal Rate (lambda): ")); Serial.print(NORMAL_RATE_HZ, 1); Serial.println(F(" events/sec"));
   Serial.print(F("[CONFIG] Burst Rate (lambda) : ")); Serial.print(BURST_RATE_HZ, 1); Serial.println(F(" events/sec"));
@@ -434,6 +489,12 @@ void setup() {
 
   // Initialize pseudorandom number generator with physical entropy
   seed_random_generator();
+
+  // Generate unique boot session identifier (Protocol V2)
+  generate_boot_identifier();
+  if (PROTOCOL_VERSION >= 2) {
+    Serial.print(F("[CONFIG] Node Boot ID       : ")); Serial.println(node_boot_id);
+  }
 
   // Initialize initial arrival interval for normal mode
   next_interval_us = sample_exponential_interval_us(NORMAL_RATE_HZ);

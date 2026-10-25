@@ -58,4 +58,14 @@
 // - Node 4:           Set to 'true'  (designated experimental burst injection node)
 #define IS_BURST_CAPABLE      false
 
+// =============================================================================
+// 4. Telemetry Protocol Version
+// =============================================================================
+// Telemetry protocol version:
+// - 1: Protocol V1 (legacy 5-field schema without reboot detection)
+// - 2: Protocol V2 (includes boot_id for automatic receiver reboot recovery)
+// Default: 2
+#define PROTOCOL_VERSION      2
+
 #endif // NODE_CONFIG_H
+

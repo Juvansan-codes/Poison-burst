@@ -30,7 +30,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 logger = logging.getLogger(__name__)
 
 # Protocol & Validation Invariants
-SUPPORTED_PROTOCOL_VERSION: int = 1
+SUPPORTED_PROTOCOL_VERSIONS: Set[int] = {1, 2}
+SUPPORTED_PROTOCOL_VERSION: int = 1  # Backward compatibility alias
 VALID_NODE_IDS: Set[str] = {"node_1", "node_2", "node_3", "node_4"}
 VALID_MODES: Set[str] = {"normal", "burst"}
 MAX_PAYLOAD_BYTES: int = 512
@@ -53,6 +54,7 @@ class TelemetryPacket:
     received_time_utc: str
     received_time_monotonic: float
     source_address: Tuple[str, int]
+    boot_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -69,12 +71,15 @@ def validate_telemetry_payload(
     2. Payload must not exceed MAX_PAYLOAD_BYTES (512 bytes).
     3. Payload must be valid UTF-8.
     4. Payload must parse into a JSON object (dict).
-    5. 'version' must be an integer equal to SUPPORTED_PROTOCOL_VERSION (1).
-    6. 'node_id' must be one of the known identities: node_1, node_2, node_3, node_4.
-    7. 'seq' must be a non-negative integer. (Booleans explicitly rejected).
-    8. 'uptime_ms' must be a non-negative integer. (Booleans explicitly rejected).
-    9. 'mode' must be strictly 'normal' or 'burst'.
-    10. Extra unexpected JSON keys are rejected if ALLOW_EXTRA_FIELDS is False.
+    5. 'version' must be an integer in SUPPORTED_PROTOCOL_VERSIONS (1 or 2).
+    6. For version 1, required fields are: version, node_id, seq, uptime_ms, mode.
+    7. For version 2, required fields are: version, node_id, seq, uptime_ms, mode, boot_id.
+    8. 'boot_id' (V2 only) must be a non-empty string with length <= 64.
+    9. 'node_id' must be one of the known identities: node_1, node_2, node_3, node_4.
+    10. 'seq' must be a non-negative integer. (Booleans explicitly rejected).
+    11. 'uptime_ms' must be a non-negative integer. (Booleans explicitly rejected).
+    12. 'mode' must be strictly 'normal' or 'burst'.
+    13. Extra unexpected JSON keys are rejected if ALLOW_EXTRA_FIELDS is False.
 
     Args:
         raw_data: Raw byte payload from socket.recvfrom().
@@ -107,9 +112,24 @@ def validate_telemetry_payload(
     if not isinstance(data, dict):
         raise ValidationError(f"Payload root must be a JSON object, got {type(data).__name__}.")
 
-    required_keys = {"version", "node_id", "seq", "uptime_ms", "mode"}
-    present_keys = set(data.keys())
+    # 1. Version validation
+    ver = data.get("version")
+    if ver is None:
+        raise ValidationError("Missing required payload field(s): ['version'].")
+    if isinstance(ver, bool) or not isinstance(ver, int):
+        raise ValidationError(f"'version' must be an integer, got {type(ver).__name__}.")
+    if ver not in SUPPORTED_PROTOCOL_VERSIONS:
+        raise ValidationError(
+            f"Unsupported protocol version {ver}. Expected version in {sorted(list(SUPPORTED_PROTOCOL_VERSIONS))}."
+        )
 
+    # 2. Schema field requirements based on version
+    if ver == 1:
+        required_keys = {"version", "node_id", "seq", "uptime_ms", "mode"}
+    else:  # ver == 2
+        required_keys = {"version", "node_id", "seq", "uptime_ms", "mode", "boot_id"}
+
+    present_keys = set(data.keys())
     missing_keys = required_keys - present_keys
     if missing_keys:
         raise ValidationError(f"Missing required payload field(s): {sorted(list(missing_keys))}.")
@@ -119,16 +139,7 @@ def validate_telemetry_payload(
         if extra_keys:
             raise ValidationError(f"Unexpected extra field(s) in payload: {sorted(list(extra_keys))}.")
 
-    # 1. Version validation
-    ver = data["version"]
-    if isinstance(ver, bool) or not isinstance(ver, int):
-        raise ValidationError(f"'version' must be an integer, got {type(ver).__name__}.")
-    if ver != SUPPORTED_PROTOCOL_VERSION:
-        raise ValidationError(
-            f"Unsupported protocol version {ver}. Expected version {SUPPORTED_PROTOCOL_VERSION}."
-        )
-
-    # 2. Node ID validation
+    # 3. Node ID validation
     node = data["node_id"]
     if not isinstance(node, str) or not node:
         raise ValidationError(f"'node_id' must be a non-empty string, got {type(node).__name__}.")
@@ -137,21 +148,21 @@ def validate_telemetry_payload(
             f"Invalid node_id '{node}'. Must be one of: {sorted(list(VALID_NODE_IDS))}."
         )
 
-    # 3. Sequence number validation (Note: in Python isinstance(True, int) is True, so explicitly check bool)
+    # 4. Sequence number validation (Note: in Python isinstance(True, int) is True, so explicitly check bool)
     seq = data["seq"]
     if isinstance(seq, bool) or not isinstance(seq, int):
         raise ValidationError(f"'seq' must be an integer, got {type(seq).__name__}.")
     if seq < 0:
         raise ValidationError(f"'seq' must be a non-negative integer, got {seq}.")
 
-    # 4. Uptime validation
+    # 5. Uptime validation
     uptime = data["uptime_ms"]
     if isinstance(uptime, bool) or not isinstance(uptime, int):
         raise ValidationError(f"'uptime_ms' must be an integer, got {type(uptime).__name__}.")
     if uptime < 0:
         raise ValidationError(f"'uptime_ms' must be a non-negative integer, got {uptime}.")
 
-    # 5. Mode validation
+    # 6. Mode validation
     mode = data["mode"]
     if not isinstance(mode, str):
         raise ValidationError(f"'mode' must be a string, got {type(mode).__name__}.")
@@ -159,6 +170,19 @@ def validate_telemetry_payload(
         raise ValidationError(
             f"Invalid mode '{mode}'. Must be one of: {sorted(list(VALID_MODES))}."
         )
+
+    # 7. Boot ID validation (Protocol V2)
+    boot_id: Optional[str] = None
+    if ver == 2:
+        bid = data["boot_id"]
+        if isinstance(bid, bool) or not isinstance(bid, str):
+            raise ValidationError(f"'boot_id' must be a string, got {type(bid).__name__}.")
+        bid_clean = bid.strip()
+        if not bid_clean or len(bid_clean) > 64:
+            raise ValidationError(
+                f"'boot_id' must be a non-empty string with length <= 64, got length {len(bid)}."
+            )
+        boot_id = bid_clean
 
     now_utc = datetime.now(timezone.utc).isoformat()
     now_mono = time.monotonic()
@@ -172,6 +196,7 @@ def validate_telemetry_payload(
         received_time_utc=now_utc,
         received_time_monotonic=now_mono,
         source_address=source_address,
+        boot_id=boot_id,
     )
 
 
@@ -195,6 +220,12 @@ class NodeTelemetryState:
     total_lost_packets_estimate: int = 0
     duplicate_or_reordered_count: int = 0
 
+    # Protocol V2 Boot Session & Reboot Tracking
+    active_boot_id: Optional[str] = None
+    retired_boot_ids: Set[str] = field(default_factory=set)
+    boot_transitions_count: int = 0
+    boot_transitions: List[Dict[str, Any]] = field(default_factory=list)
+
     # Rolling window of recent arrival timestamps for responsive rate calculation (last 5 seconds)
     _recent_arrival_timestamps: collections.deque = field(
         default_factory=lambda: collections.deque(maxlen=500),
@@ -204,43 +235,99 @@ class NodeTelemetryState:
     def record_packet(self, packet: TelemetryPacket) -> None:
         """Update node state with an accepted, validated telemetry packet."""
         mono = packet.received_time_monotonic
+        is_v2 = (packet.version >= 2 and packet.boot_id is not None)
 
-        # Initialize baseline on first observation
-        if self.first_seq is None:
-            self.first_seq = packet.seq
-            self.first_receipt_time_monotonic = mono
-            self.last_seq = packet.seq
-            self.unique_packets_count = 1
-        else:
-            prev_seq = self.last_seq if self.last_seq is not None else 0
-            expected_seq = (prev_seq + 1) & 0xFFFFFFFF
-
-            if packet.seq == expected_seq:
-                # Normal in-order sequence
+        if not is_v2:
+            # Protocol V1: Strict monotonic sequence tracking (no reboot detection)
+            if self.first_seq is None:
+                self.first_seq = packet.seq
+                self.first_receipt_time_monotonic = mono
                 self.last_seq = packet.seq
-                self.unique_packets_count += 1
-            elif packet.seq > prev_seq:
-                # Sequence gap detected (packet loss or transmission failure)
-                gap = packet.seq - prev_seq - 1
-                self.sequence_gaps_count += 1
-                self.total_lost_packets_estimate += gap
-                self.last_seq = packet.seq
-                self.unique_packets_count += 1
+                self.unique_packets_count = 1
             else:
-                # packet.seq <= prev_seq
-                # Check for 32-bit unsigned integer rollover (~4.29 billion)
-                if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
-                    rollover_gap = (packet.seq - prev_seq) & 0xFFFFFFFF
-                    if rollover_gap > 1:
-                        self.sequence_gaps_count += 1
-                        self.total_lost_packets_estimate += (rollover_gap - 1)
+                prev_seq = self.last_seq if self.last_seq is not None else 0
+                expected_seq = (prev_seq + 1) & 0xFFFFFFFF
+
+                if packet.seq == expected_seq:
+                    # Normal in-order sequence
+                    self.last_seq = packet.seq
+                    self.unique_packets_count += 1
+                elif packet.seq > prev_seq:
+                    # Sequence gap detected (packet loss or transmission failure)
+                    gap = packet.seq - prev_seq - 1
+                    self.sequence_gaps_count += 1
+                    self.total_lost_packets_estimate += gap
                     self.last_seq = packet.seq
                     self.unique_packets_count += 1
                 else:
-                    # Duplicate packet or out-of-order delivery
-                    self.duplicate_or_reordered_count += 1
-                    # Sequence policy: Duplicate or reordered packet is counted in valid_packets_count,
-                    # but does NOT increment unique_packets_count.
+                    # packet.seq <= prev_seq
+                    # Check for 32-bit unsigned integer rollover (~4.29 billion)
+                    if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
+                        rollover_gap = (packet.seq - prev_seq) & 0xFFFFFFFF
+                        if rollover_gap > 1:
+                            self.sequence_gaps_count += 1
+                            self.total_lost_packets_estimate += (rollover_gap - 1)
+                        self.last_seq = packet.seq
+                        self.unique_packets_count += 1
+                    else:
+                        # Duplicate packet or out-of-order delivery
+                        self.duplicate_or_reordered_count += 1
+        else:
+            # Protocol V2: Boot-aware sequence tracking and reboot recovery
+            if self.active_boot_id is None:
+                # First observation of this node under Protocol V2
+                self.active_boot_id = packet.boot_id
+                if self.first_seq is None:
+                    self.first_seq = packet.seq
+                    self.first_receipt_time_monotonic = mono
+                self.last_seq = packet.seq
+                self.unique_packets_count = 1
+            elif packet.boot_id == self.active_boot_id:
+                # Normal packet in active boot session
+                prev_seq = self.last_seq if self.last_seq is not None else 0
+                expected_seq = (prev_seq + 1) & 0xFFFFFFFF
+
+                if packet.seq == expected_seq:
+                    self.last_seq = packet.seq
+                    self.unique_packets_count += 1
+                elif packet.seq > prev_seq:
+                    gap = packet.seq - prev_seq - 1
+                    self.sequence_gaps_count += 1
+                    self.total_lost_packets_estimate += gap
+                    self.last_seq = packet.seq
+                    self.unique_packets_count += 1
+                else:
+                    if prev_seq > 4_000_000_000 and packet.seq < 1_000_000:
+                        rollover_gap = (packet.seq - prev_seq) & 0xFFFFFFFF
+                        if rollover_gap > 1:
+                            self.sequence_gaps_count += 1
+                            self.total_lost_packets_estimate += (rollover_gap - 1)
+                        self.last_seq = packet.seq
+                        self.unique_packets_count += 1
+                    else:
+                        # Duplicate within active boot session
+                        self.duplicate_or_reordered_count += 1
+            elif packet.boot_id in self.retired_boot_ids:
+                # Delayed packet from a previously retired boot session
+                # Policy: Do NOT switch session back. Count as duplicate/reordered.
+                self.duplicate_or_reordered_count += 1
+            else:
+                # New, previously unseen boot_id -> REBOOT DETECTED!
+                old_boot = self.active_boot_id
+                self.retired_boot_ids.add(old_boot)
+                transition_record = {
+                    "transition_time_utc": packet.received_time_utc,
+                    "transition_time_monotonic": mono,
+                    "from_boot_id": old_boot,
+                    "to_boot_id": packet.boot_id,
+                    "last_seq_before_reboot": self.last_seq,
+                    "initial_seq_after_reboot": packet.seq,
+                }
+                self.boot_transitions.append(transition_record)
+                self.boot_transitions_count += 1
+                self.active_boot_id = packet.boot_id
+                self.last_seq = packet.seq
+                self.unique_packets_count += 1
 
         self.valid_packets_count += 1
         self.is_observed = True
@@ -303,6 +390,10 @@ class NodeTelemetryState:
             "sequence_gaps_count": self.sequence_gaps_count,
             "total_lost_packets_estimate": self.total_lost_packets_estimate,
             "duplicate_or_reordered_count": self.duplicate_or_reordered_count,
+            "active_boot_id": self.active_boot_id,
+            "retired_boot_ids": sorted(list(self.retired_boot_ids)),
+            "boot_transitions_count": self.boot_transitions_count,
+            "boot_transitions": self.boot_transitions,
             "observed_rate_hz": self.get_observed_rate(),
         }
 

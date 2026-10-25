@@ -21,6 +21,8 @@ export default function HardwareNodeGrid({
   const nodeLastSeen = status?.node_last_seen_utc ?? {};
   const nodeGaps = status?.node_gaps ?? {};
   const nodeDuplicates = status?.node_duplicates ?? {};
+  const nodeBootIds = status?.node_boot_ids ?? {};
+  const nodeBootTransitions = status?.node_boot_transitions ?? {};
 
   return (
     <div className="space-y-3">
@@ -29,7 +31,7 @@ export default function HardwareNodeGrid({
           Hardware Nodes Status (4 Logical Nodes)
         </h3>
         <span className="text-xs text-[#737373]">
-          Continuous time-based liveness tracking
+          Continuous time-based liveness tracking & Protocol V2 boot detection
         </span>
       </div>
 
@@ -41,6 +43,8 @@ export default function HardwareNodeGrid({
           const lastSeen = nodeLastSeen[nodeId] ?? null;
           const gaps = nodeGaps[nodeId] ?? 0;
           const duplicates = nodeDuplicates[nodeId] ?? 0;
+          const bootId = nodeBootIds[nodeId] ?? null;
+          const bootTransitions = nodeBootTransitions[nodeId] ?? 0;
 
           return (
             <HardwareNodeCard
@@ -54,6 +58,8 @@ export default function HardwareNodeGrid({
               duplicatesCount={duplicates}
               lastSeenUtc={lastSeen}
               isActiveSession={isActive}
+              bootId={bootId}
+              bootTransitions={bootTransitions}
             />
           );
         })}

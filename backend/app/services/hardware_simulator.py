@@ -41,6 +41,12 @@ class SimulatedNodeConfig:
     burst_duration_seconds: Optional[float] = None
     initial_mode: str = "normal"
     random_seed: Optional[int] = None
+    initial_seq: int = 0
+    protocol_version: int = 1
+    boot_id: Optional[str] = None
+    reboot_at_second: Optional[float] = None
+    reboot_new_boot_id: Optional[str] = None
+    reboot_reset_seq: bool = True
 
     def __post_init__(self) -> None:
         if self.node_id not in SUPPORTED_NODE_IDS:
@@ -55,6 +61,14 @@ class SimulatedNodeConfig:
             raise ValueError("burst_start_second cannot be negative.")
         if self.burst_duration_seconds is not None and self.burst_duration_seconds <= 0.0:
             raise ValueError("burst_duration_seconds must be strictly positive.")
+        if self.initial_seq < 0:
+            raise ValueError(f"initial_seq cannot be negative, got {self.initial_seq}.")
+        if self.protocol_version not in (1, 2):
+            raise ValueError(f"protocol_version must be 1 or 2, got {self.protocol_version}.")
+        if self.protocol_version == 2 and self.boot_id is None:
+            self.boot_id = f"boot_{self.node_id}_1"
+        if self.reboot_at_second is not None and self.reboot_at_second < 0.0:
+            raise ValueError("reboot_at_second cannot be negative.")
 
 
 @dataclass
@@ -101,7 +115,10 @@ class SimulatedNode:
 
         self._lock = threading.Lock()
         self.current_mode = config.initial_mode
-        self.seq = 0
+        self.seq = config.initial_seq
+        self.protocol_version = config.protocol_version
+        self.boot_id = config.boot_id or (f"boot_{config.node_id}_1" if config.protocol_version == 2 else None)
+        self._has_rebooted = False
         self.attempts_total = 0
         self.attempts_normal = 0
         self.attempts_burst = 0
@@ -159,17 +176,36 @@ class SimulatedNode:
                     else self.config.normal_rate_hz
                 )
 
+                # Check scheduled reboot
+                if (
+                    self.config.reboot_at_second is not None
+                    and not self._has_rebooted
+                    and elapsed_since_global >= self.config.reboot_at_second
+                ):
+                    self._has_rebooted = True
+                    old_boot = self.boot_id
+                    self.boot_id = self.config.reboot_new_boot_id or f"boot_{self.config.node_id}_2"
+                    if self.config.reboot_reset_seq:
+                        self.seq = 0
+                    self.start_monotonic = time.monotonic()
+                    logger.info(
+                        f"[{self.config.node_id}] Simulated node rebooted at T={elapsed_since_global:.2f}s: "
+                        f"boot_id '{old_boot}' -> '{self.boot_id}', sequence counter reset to {self.seq}"
+                    )
+
                 # 2. Transmit one UDP telemetry packet
                 self.seq += 1
                 uptime_ms = max(0, int((now_mono - self.start_monotonic) * 1000))
 
-                payload = {
-                    "version": 1,
+                payload: Dict[str, Any] = {
+                    "version": self.protocol_version,
                     "node_id": self.config.node_id,
                     "seq": self.seq,
                     "uptime_ms": uptime_ms,
                     "mode": active_mode,
                 }
+                if self.protocol_version == 2:
+                    payload["boot_id"] = self.boot_id
 
                 raw_bytes = json.dumps(payload).encode("utf-8")
                 try:
@@ -242,6 +278,7 @@ class HardwareSimulator:
         nodes: Optional[Sequence[SimulatedNodeConfig]] = None,
         duration_seconds: Optional[float] = None,
         global_seed: Optional[int] = None,
+        initial_sequences: Optional[Dict[str, int]] = None,
     ) -> None:
         self.destination_host = destination_host
         self.destination_port = destination_port
@@ -252,6 +289,11 @@ class HardwareSimulator:
             nodes = self.create_default_four_node_configs(global_seed=global_seed)
 
         self.node_configs = list(nodes)
+        if initial_sequences:
+            for cfg in self.node_configs:
+                if cfg.node_id in initial_sequences:
+                    cfg.initial_seq = initial_sequences[cfg.node_id]
+
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._is_running = False
@@ -291,6 +333,111 @@ class HardwareSimulator:
                 )
             )
         return configs
+
+    @staticmethod
+    def create_protocol_v2_four_node_configs(
+        normal_rate_hz: float = 5.0,
+        burst_rate_hz: float = 50.0,
+        burst_start_second: Optional[float] = 15.0,
+        burst_duration_seconds: Optional[float] = 15.0,
+        global_seed: Optional[int] = None,
+        node_boot_ids: Optional[Dict[str, str]] = None,
+    ) -> List[SimulatedNodeConfig]:
+        """Create a 4-node configuration using Protocol V2 (with boot_id)."""
+        configs = []
+        b_ids = node_boot_ids or {}
+        for idx, nid in enumerate(["node_1", "node_2", "node_3", "node_4"]):
+            seed = (global_seed + idx * 1000) if global_seed is not None else None
+            is_node_4 = (nid == "node_4")
+
+            configs.append(
+                SimulatedNodeConfig(
+                    node_id=nid,
+                    normal_rate_hz=normal_rate_hz,
+                    burst_rate_hz=burst_rate_hz,
+                    is_burst_capable=is_node_4,
+                    burst_start_second=burst_start_second if is_node_4 else None,
+                    burst_duration_seconds=burst_duration_seconds if is_node_4 else None,
+                    random_seed=seed,
+                    protocol_version=2,
+                    boot_id=b_ids.get(nid, f"boot_{nid}_1"),
+                )
+            )
+        return configs
+
+    @staticmethod
+    def create_mixed_protocol_configs(
+        v1_nodes: Sequence[str] = ("node_1", "node_3"),
+        v2_nodes: Sequence[str] = ("node_2", "node_4"),
+        normal_rate_hz: float = 5.0,
+        burst_rate_hz: float = 50.0,
+        global_seed: Optional[int] = None,
+    ) -> List[SimulatedNodeConfig]:
+        """Create a mixed deployment with both Protocol V1 and Protocol V2 nodes."""
+        configs = []
+        v2_set = set(v2_nodes)
+        for idx, nid in enumerate(["node_1", "node_2", "node_3", "node_4"]):
+            seed = (global_seed + idx * 1000) if global_seed is not None else None
+            is_node_4 = (nid == "node_4")
+            ver = 2 if nid in v2_set else 1
+
+            configs.append(
+                SimulatedNodeConfig(
+                    node_id=nid,
+                    normal_rate_hz=normal_rate_hz,
+                    burst_rate_hz=burst_rate_hz,
+                    is_burst_capable=is_node_4,
+                    random_seed=seed,
+                    protocol_version=ver,
+                    boot_id=f"boot_{nid}_1" if ver == 2 else None,
+                )
+            )
+        return configs
+
+    def send_raw_datagram(self, raw_bytes: bytes) -> None:
+        """Inject an arbitrary raw UDP datagram to the simulator destination."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.sendto(raw_bytes, (self.destination_host, self.destination_port))
+        finally:
+            sock.close()
+
+    def send_protocol_v2_packet(
+        self,
+        node_id: str,
+        seq: int,
+        boot_id: str,
+        uptime_ms: int = 100,
+        mode: str = "normal",
+    ) -> None:
+        """Helper to inject a specific Protocol V2 packet."""
+        payload = {
+            "version": 2,
+            "node_id": node_id,
+            "seq": seq,
+            "uptime_ms": uptime_ms,
+            "mode": mode,
+            "boot_id": boot_id,
+        }
+        self.send_raw_datagram(json.dumps(payload).encode("utf-8"))
+
+    def send_delayed_packet(
+        self,
+        node_id: str,
+        retired_boot_id: str,
+        seq: int,
+        uptime_ms: int = 100,
+        mode: str = "normal",
+    ) -> None:
+        """Helper to inject a delayed packet from a previously retired boot session."""
+        self.send_protocol_v2_packet(
+            node_id=node_id,
+            seq=seq,
+            boot_id=retired_boot_id,
+            uptime_ms=uptime_ms,
+            mode=mode,
+        )
+
 
     @property
     def is_running(self) -> bool:
@@ -408,6 +555,14 @@ class HardwareSimulator:
                 "total_failed_attempts": total_failed,
                 "overall_send_rate_hz": overall_rate,
                 "nodes": node_stats,
+            }
+
+    def get_last_sequences(self) -> Dict[str, int]:
+        """Return the highest sequence number reached by each simulated node."""
+        with self._lock:
+            return {
+                nid: node.seq
+                for nid, node in self._simulated_nodes.items()
             }
 
     def __enter__(self) -> "HardwareSimulator":

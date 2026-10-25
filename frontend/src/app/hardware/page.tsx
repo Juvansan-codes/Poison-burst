@@ -336,6 +336,11 @@ export default function HardwareLabPage() {
             <div className="p-2.5 rounded bg-[#191919] border border-[#242424]">
               <span className="text-[10px] text-[#737373] font-sans uppercase block">Valid Datagrams</span>
               <span className="text-sm font-bold text-[#F5F5F5]">{lastSummary.total_valid_datagrams.toLocaleString()}</span>
+              {(lastSummary.duplicate_datagrams ?? 0) > 0 && (
+                <span className="text-[10px] text-yellow-500 font-sans block mt-0.5">
+                  {lastSummary.unique_datagrams ?? 0} unique, {lastSummary.duplicate_datagrams} filtered
+                </span>
+              )}
             </div>
 
             <div className="p-2.5 rounded bg-[#191919] border border-[#242424]">
@@ -359,6 +364,15 @@ export default function HardwareLabPage() {
               </span>
             </div>
           </div>
+
+          {(lastSummary.duplicate_datagrams ?? 0) > 0 && (
+            <div className="p-2.5 rounded bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.25)] text-xs text-yellow-500 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div>
+                <strong>Data Quality Notice:</strong> {lastSummary.duplicate_datagrams} datagrams had sequence numbers &le; node high-water marks and were deduplicated. Accepted arrival counts ({lastSummary.unique_datagrams ?? 0} unique events across {lastSummary.completed_windows_count} windows) reflect accepted observations and may underrepresent total generated traffic if sequences restarted.
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#202020]">
             <p className="text-[11px] text-[#737373] leading-relaxed">
