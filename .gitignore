@@ -84,3 +84,7 @@ backend/data/
 *.db-wal
 *.db-shm
 
+# University network telemetry datasets (confidential faculty exports)
+Karunya_Data/
+
+

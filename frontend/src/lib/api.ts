@@ -33,6 +33,12 @@ import {
   HardwareStatusResponse,
   HardwareLiveWindowsResponse,
   HardwareStopResponse,
+  DatasetListResponse,
+  DatasetSummaryResponse,
+  TimeSeriesResponse,
+  SeriesStatistics,
+  AllSeriesStatisticsResponse,
+  UniversitySpikesResponse,
 } from './types';
 
 const API_BASE_URL =
@@ -448,6 +454,129 @@ export const api = {
     return request<HardwareStopResponse>(`/api/hardware/persist/retry${qs}`, {
       method: 'POST',
     });
+  },
+
+  // =========================================================================
+  // University Network Analytics Endpoints
+  // =========================================================================
+
+  /**
+   * List available university network datasets and their metadata overview.
+   */
+  async getUniversityDatasets(): Promise<DatasetListResponse> {
+    return request<DatasetListResponse>('/api/university-network/datasets', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Retrieve comprehensive summary metrics and data quality info for a dataset.
+   */
+  async getUniversityDatasetSummary(datasetId: string): Promise<DatasetSummaryResponse> {
+    return request<DatasetSummaryResponse>(
+      `/api/university-network/datasets/${encodeURIComponent(datasetId)}/summary`,
+      { method: 'GET' }
+    );
+  },
+
+  /**
+   * Retrieve time-series telemetry observations for selected series.
+   */
+  async getUniversityTimeSeries(
+    datasetId: string,
+    params?: {
+      series_ids?: string;
+      include_boundary_rows?: boolean;
+      start_time?: number;
+      end_time?: number;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<TimeSeriesResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.series_ids) searchParams.append('series_ids', params.series_ids);
+    if (params?.include_boundary_rows !== undefined) {
+      searchParams.append('include_boundary_rows', String(params.include_boundary_rows));
+    }
+    if (params?.start_time !== undefined && params?.start_time !== null) {
+      searchParams.append('start_time', String(params.start_time));
+    }
+    if (params?.end_time !== undefined && params?.end_time !== null) {
+      searchParams.append('end_time', String(params.end_time));
+    }
+    if (params?.limit !== undefined && params?.limit !== null) {
+      searchParams.append('limit', String(params.limit));
+    }
+    if (params?.offset !== undefined && params?.offset !== null) {
+      searchParams.append('offset', String(params.offset));
+    }
+    const qs = searchParams.toString();
+    const endpoint = `/api/university-network/datasets/${encodeURIComponent(datasetId)}/series${qs ? `?${qs}` : ''}`;
+    return request<TimeSeriesResponse>(endpoint, { method: 'GET' });
+  },
+
+  /**
+   * Retrieve statistics for an individual measurement series.
+   */
+  async getUniversitySeriesStatistics(
+    datasetId: string,
+    seriesId: string
+  ): Promise<SeriesStatistics> {
+    return request<SeriesStatistics>(
+      `/api/university-network/datasets/${encodeURIComponent(datasetId)}/series/${encodeURIComponent(seriesId)}/statistics`,
+      { method: 'GET' }
+    );
+  },
+
+  /**
+   * Retrieve statistics across all series in a dataset.
+   */
+  async getUniversityAllSeriesStatistics(
+    datasetId: string,
+    onlyActive: boolean = false
+  ): Promise<AllSeriesStatisticsResponse> {
+    const qs = onlyActive ? '?only_active=true' : '';
+    return request<AllSeriesStatisticsResponse>(
+      `/api/university-network/datasets/${encodeURIComponent(datasetId)}/statistics${qs}`,
+      { method: 'GET' }
+    );
+  },
+
+  /**
+   * Detect robust historical traffic-spike candidates using median & MAD with IQR fallback.
+   */
+  async getUniversitySpikes(
+    datasetId: string,
+    params?: {
+      series_ids?: string;
+      threshold?: number;
+      max_candidates?: number;
+      start_time?: number;
+      end_time?: number;
+      sort_by?: 'score' | 'timestamp' | 'magnitude';
+      sort_direction?: 'asc' | 'desc';
+    }
+  ): Promise<UniversitySpikesResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.series_ids) searchParams.append('series_ids', params.series_ids);
+    if (params?.threshold !== undefined && params?.threshold !== null) {
+      searchParams.append('threshold', String(params.threshold));
+    }
+    if (params?.max_candidates !== undefined && params?.max_candidates !== null) {
+      searchParams.append('max_candidates', String(params.max_candidates));
+    }
+    if (params?.start_time !== undefined && params?.start_time !== null) {
+      searchParams.append('start_time', String(params.start_time));
+    }
+    if (params?.end_time !== undefined && params?.end_time !== null) {
+      searchParams.append('end_time', String(params.end_time));
+    }
+    if (params?.sort_by) searchParams.append('sort_by', params.sort_by);
+    if (params?.sort_direction) searchParams.append('sort_direction', params.sort_direction);
+
+    const qs = searchParams.toString();
+    const endpoint = `/api/university-network/datasets/${encodeURIComponent(datasetId)}/spikes${qs ? `?${qs}` : ''}`;
+    return request<UniversitySpikesResponse>(endpoint, { method: 'GET' });
   },
 };
 

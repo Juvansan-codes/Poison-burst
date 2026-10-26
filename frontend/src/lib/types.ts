@@ -485,5 +485,178 @@ export interface HardwareStopResponse {
   persistence_error?: string | null;
 }
 
+// =========================================================================
+// University Network Analytics Types (Phase 1 & Phase 2)
+// =========================================================================
 
+export interface SeriesMetadata {
+  series_id: string;
+  column_index: number;
+  original_header: string;
+  display_name: string;
+  is_blank_header: boolean;
+  channel_index?: number | null;
+  direction_candidate: string;
+}
+
+export interface SeriesStatistics {
+  series_id: string;
+  column_index: number;
+  original_header: string;
+  display_name: string;
+  total_observations: number;
+  valid_count: number;
+  missing_count: number;
+  is_all_zero: boolean;
+  min_value: number | null;
+  max_value: number | null;
+  mean_value: number | null;
+  std_dev: number | null;
+  abs_peak_value: number | null;
+  peak_timestamp: number | null;
+  peak_datetime: string | null;
+  unit: string;
+  direction_note: string;
+}
+
+export interface BoundaryRowInfo {
+  row_index: number;
+  timestamp: number;
+  datetime: string;
+  reason: string;
+}
+
+export interface PeakMeasurement {
+  signed_value: number;
+  abs_value: number;
+  timestamp: number;
+  datetime: string;
+  series_id: string;
+  series_display_name: string;
+  column_index: number;
+}
+
+export interface DataQualityInfo {
+  total_csv_data_rows: number;
+  empty_boundary_rows_count: number;
+  boundary_rows: BoundaryRowInfo[];
+  valid_data_rows_count: number;
+  duplicate_headers_count: number;
+  blank_headers_count: number;
+  total_cells_evaluated: number;
+  total_valid_measurements: number;
+  total_missing_measurements: number;
+  missing_percentage: number;
+  notes: string[];
+}
+
+export interface DatasetSummaryResponse {
+  dataset_id: string;
+  display_name: string;
+  description: string;
+  file_source: string;
+  measurement_series_count: number;
+  active_series_count: number;
+  zero_series_count: number;
+  valid_timestamp_count: number;
+  first_timestamp: number;
+  first_datetime: string;
+  last_timestamp: number;
+  last_datetime: string;
+  first_valid_timestamp: number;
+  first_valid_datetime: string;
+  last_valid_timestamp: number;
+  last_valid_datetime: string;
+  time_span_seconds: number;
+  time_span_human: string;
+  observed_sampling_interval_seconds: number;
+  sampling_interval_human: string;
+  is_regular_sampling: boolean;
+  total_valid_measurements: number;
+  total_missing_measurements: number;
+  peak_measurement: PeakMeasurement;
+  data_quality: DataQualityInfo;
+  unit_statement: string;
+  direction_statement: string;
+}
+
+export interface DatasetMetadataItem {
+  dataset_id: string;
+  display_name: string;
+  description: string;
+  file_available: boolean;
+  file_path: string | null;
+  series_count: number | null;
+  valid_rows_count: number | null;
+  first_valid_datetime: string | null;
+  last_valid_datetime: string | null;
+  sampling_interval_seconds: number | null;
+  unit_statement: string;
+}
+
+export interface DatasetListResponse {
+  datasets: DatasetMetadataItem[];
+  total: number;
+  notes: string;
+}
+
+export interface TimeSeriesPoint {
+  timestamp: number;
+  datetime: string;
+  is_boundary_row: boolean;
+  values: Record<string, number | null>;
+}
+
+export interface TimeSeriesResponse {
+  dataset_id: string;
+  display_name: string;
+  total_points: number;
+  sampling_interval_seconds: number;
+  series_metadata: SeriesMetadata[];
+  data: TimeSeriesPoint[];
+  unit_statement: string;
+  direction_statement: string;
+}
+
+export interface AllSeriesStatisticsResponse {
+  dataset_id: string;
+  total_series: number;
+  active_series: number;
+  zero_series: number;
+  series_statistics: SeriesStatistics[];
+  unit_statement: string;
+  direction_statement: string;
+}
+
+export interface TrafficSpikeCandidate {
+  dataset_id: string;
+  series_id: string;
+  series_display_name: string;
+  original_header: string;
+  timestamp: number;
+  datetime: string;
+  signed_value: number;
+  abs_value: number;
+  baseline_value: number;
+  deviation: number;
+  anomaly_score: number;
+  detection_method: string;
+  threshold_used: number;
+}
+
+export interface UniversitySpikesResponse {
+  dataset_id: string;
+  display_name: string;
+  threshold_used: number;
+  detection_method: string;
+  total_candidates: number;
+  affected_series_count: number;
+  total_series_analyzed: number;
+  total_observations_analyzed: number;
+  largest_candidate: TrafficSpikeCandidate | null;
+  candidates: TrafficSpikeCandidate[];
+  unit_statement: string;
+  direction_statement: string;
+  disclaimer: string;
+}
 

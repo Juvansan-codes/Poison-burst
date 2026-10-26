@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
 from app.api.hardware_routes import router as hardware_router
+from app.api.university_routes import router as university_router
 from app.services.hardware_session_manager import get_hardware_session_manager
 
 
@@ -64,6 +65,7 @@ app.add_middleware(
 # Mount all API routes with /api prefix
 app.include_router(api_router, prefix="/api")
 app.include_router(hardware_router, prefix="/api/hardware")
+app.include_router(university_router, prefix="/api/university-network")
 
 
 @app.get("/", tags=["Root"])

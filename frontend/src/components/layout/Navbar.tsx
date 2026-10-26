@@ -12,6 +12,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  Network,
   X,
   RefreshCw,
 } from 'lucide-react';
@@ -22,6 +23,11 @@ const navItems = [
     name: 'Dashboard',
     href: '/',
     icon: LayoutDashboard,
+  },
+  {
+    name: 'University Network',
+    href: '/university-network',
+    icon: Network,
   },
   {
     name: 'Hardware Lab',
