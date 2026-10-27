@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 class HardwareStartRequest(BaseModel):
     """Configuration payload to initialize and start a new hardware session."""
     bind_host: str = Field(
-        default="127.0.0.1",
+        default="0.0.0.0",
         description="Local IPv4 interface to bind (e.g. 127.0.0.1 for local, 0.0.0.0 for all interfaces).",
     )
     bind_port: int = Field(

@@ -29,7 +29,7 @@ export default function HardwareSessionControls({
   onStopSession,
 }: HardwareSessionControlsProps) {
   // Form State
-  const [bindHost, setBindHost] = useState<string>('127.0.0.1');
+  const [bindHost, setBindHost] = useState<string>('0.0.0.0');
   const [bindPort, setBindPort] = useState<number>(5005);
   const [useEphemeralPort, setUseEphemeralPort] = useState<boolean>(false);
   const [windowSeconds, setWindowSeconds] = useState<number>(1.0);
@@ -98,7 +98,7 @@ export default function HardwareSessionControls({
     setFormError(null);
 
     const payload: HardwareStartRequest = {
-      bind_host: bindHost.trim() || '127.0.0.1',
+      bind_host: bindHost.trim() || '0.0.0.0',
       bind_port: useEphemeralPort ? 0 : bindPort,
       window_seconds: windowSeconds,
       alpha: alpha,

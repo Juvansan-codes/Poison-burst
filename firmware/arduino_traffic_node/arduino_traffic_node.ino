@@ -282,11 +282,21 @@ void transmit_event() {
   // Transmit over UDP if Wi-Fi is currently connected
   if (WiFi.status() == WL_CONNECTED) {
     int begin_ok = udp_client.beginPacket(receiver_ip, RECEIVER_UDP_PORT);
+    if (!begin_ok) {
+      // Auto-initialize socket if not yet started
+      udp_client.stop();
+      udp_client.begin(RECEIVER_UDP_PORT);
+      begin_ok = udp_client.beginPacket(receiver_ip, RECEIVER_UDP_PORT);
+    }
+
     if (begin_ok) {
       udp_client.write((const uint8_t*)payload, len);
       int end_ok = udp_client.endPacket();
       if (end_ok == 1) {
         packets_transmitted++;
+        if (packets_transmitted == 1) {
+          Serial.println(F("[UDP] >> First telemetry packet sent successfully to receiver!"));
+        }
       } else {
         packets_failed++;
       }
@@ -330,6 +340,9 @@ void connect_wifi_initial() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print(F("[WIFI] Connected successfully! Node IP: "));
     Serial.println(WiFi.localIP());
+    udp_client.begin(RECEIVER_UDP_PORT);
+    Serial.print(F("[UDP] Socket initialized on local port: "));
+    Serial.println(RECEIVER_UDP_PORT);
     Serial.print(F("[WIFI] Target Receiver: "));
     Serial.print(receiver_ip);
     Serial.print(F(":"));
@@ -352,6 +365,9 @@ void check_wifi_connection_nonblocking() {
       last_reconnect_attempt_ms = now_ms;
       Serial.println(F("[WIFI] Reconnecting to access point..."));
       WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      if (WiFi.status() == WL_CONNECTED) {
+        udp_client.begin(RECEIVER_UDP_PORT);
+      }
     }
   }
 }
